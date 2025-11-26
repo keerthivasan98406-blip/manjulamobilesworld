@@ -25,10 +25,10 @@ class ManjulaMobilesApp {
     
     // Carousel properties
     this.carouselImages = [
-      "https://i.pinimg.com/736x/69/dd/46/69dd468f5e56f1a8b82b7dc3fd68acdc.jpg",
-      "https://i.pinimg.com/736x/2b/39/3c/2b393c8a501a95f7adf1d6c3072915a9.jpg",
-      "https://i.pinimg.com/736x/9c/a9/d2/9ca9d2877c97c38e0d0c8a1b0ab530a5.jpg",
-      "https://i.pinimg.com/736x/6b/47/34/6b47347d2e01698af4c21c60eeba98b2.jpg"
+      "./public/assets/images/1.jpg",
+      "./public/assets/images/2.jpg",
+      "./public/assets/images/3.jpg",
+      "./public/assets/images/4.jpg"
     ];
     this.currentCarouselIndex = 0;
     this.carouselInterval = null;
