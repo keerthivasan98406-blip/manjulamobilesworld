@@ -2469,7 +2469,7 @@ class ManjulaMobilesApp {
                 <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 16px;">Get In Touch</h3>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                   <p style="display: flex; align-items: center; gap: 12px;"><span style="font-size: 20px;">📍</span> <span><strong>Melmaruvathur, Vandavasi Rd, Ramapuram, Tamil Nadu 603201</strong></span></p>
-                  <p style="display: flex; align-items: center; gap: 12px;"><span style="font-size: 20px;">📞</span> <span style="color: #22d3ee;"><strong>+91 8248454841</strong></span></p>
+                  <p style="display: flex; align-items: center; gap: 12px;"><span style="font-size: 20px;">📞</span> <span style="color: #22d3ee;"><strong>+91 82484 54841</strong></span></p>
                   <p style="display: flex; align-items: center; gap: 12px;"><span style="font-size: 20px;">✉️</span> <span style="color: #22d3ee;"><strong>info@manjulamobiles.com</strong></span></p>
                   <p style="display: flex; align-items: center; gap: 12px;"><span style="font-size: 20px;">🕐</span> <span>Mon - Sun: 9:00 AM - 10:00 PM<br>Holidays: 10:00 AM - 8:00 PM</span></p>
                 </div>
@@ -2522,7 +2522,7 @@ class ManjulaMobilesApp {
 
                 <div>
                   <div style="color: #fb923c; font-weight: 600; margin-bottom: 8px;">📞 Phone</div>
-                  <a href="tel:+918248454841" style="color: #87e087ff; text-decoration: none; font-weight: 500; display: block;">+91 8248454841</a>
+                  <a href="tel:+918248454841" style="color: #87e087ff; text-decoration: none; font-weight: 500; display: block;">+91 82484 54841</a>
                 </div>
 
                 <div>
@@ -3019,7 +3019,7 @@ class ManjulaMobilesApp {
             
             <div style="margin-top: 32px; padding: 16px; background-color: #fef2f2; border-radius: 8px;">
               <p style="margin: 0; font-size: 14px; color: #374151;">
-                <strong>Direct WhatsApp Number:</strong> +91 8248454841<br>
+                <strong>Direct WhatsApp Number:</strong> +91 82484 54841<br>
                 <strong>Available:</strong> 24/7 for emergency services
               </p>
             </div>
@@ -3053,7 +3053,7 @@ class ManjulaMobilesApp {
             <h4>Contact</h4>
             <ul>
               <li><a href="mailto:manjulamobiles125@gmail.com">manjulamobiles125@gmail.com</a></li>
-              <li><a href="tel:+91 8248454841">+91 9894703254</a></li>
+              <li><a href="tel:+918248454841">+91 82484 54841</a></li>
               <li>Available 24/7</li>
             </ul>
           </div>
@@ -3490,7 +3490,7 @@ class ManjulaMobilesApp {
         <div class="header">
           <h1>📱 MANJULA MOBIL WORLD</h1>
           <p>The Final World of Mobile Services</p>
-          <p>📍 Ramapuram, Tamil Nadu | 📞 +91 8248454841</p>
+          <p>📍 Ramapuram, Tamil Nadu | 📞 +91 82484 54841</p>
           <p>✉️ manjulamobiles125@gmail.com</p>
         </div>
 
@@ -3556,7 +3556,7 @@ class ManjulaMobilesApp {
 
         <div class="footer">
           <p>Thank you for your business!</p>
-          <p>For any queries, please contact us at +91 8248454841</p>
+          <p>For any queries, please contact us at +91 82484 54841</p>
         </div>
 
         <script>
