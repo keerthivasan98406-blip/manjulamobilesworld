@@ -19,9 +19,9 @@ class ManjulaMobilesApp {
     const baseURL = isLocalhost ? 'http://localhost:3001' : window.location.origin;
     this.API_URL = `${baseURL}/api`
     
-    // Socket.IO connection for real-time updates
-    this.socket = io(baseURL)
-    this.setupSocketListeners()
+    // Socket.IO connection disabled for local mode
+    // this.socket = io(baseURL)
+    // this.setupSocketListeners()
     
     // Carousel properties
     this.carouselImages = [
@@ -109,56 +109,94 @@ class ManjulaMobilesApp {
   // Product Management Methods - MongoDB API
   async loadProductsFromStorage() {
     try {
-      const response = await fetch(`${this.API_URL}/products`);
-      if (response.ok) {
-        this.products = await response.json();
-        console.log('✅ Loaded products from MongoDB:', this.products.length);
+      // Load from localStorage first
+      const savedProducts = localStorage.getItem('manjula_products');
+      if (savedProducts) {
+        this.products = JSON.parse(savedProducts);
+        console.log('✅ Loaded products from localStorage:', this.products.length);
       } else {
         console.log('⚠️ Using default products');
         this.products = this.getDefaultProducts();
+        // Save default products to localStorage
+        localStorage.setItem('manjula_products', JSON.stringify(this.products));
       }
     } catch (error) {
       console.error('❌ Error loading products:', error);
       this.products = this.getDefaultProducts();
+      localStorage.setItem('manjula_products', JSON.stringify(this.products));
     }
   }
 
   getDefaultProducts() {
     return [
-      // {
-      //   id: 1,
-      //   name: "Samsung Galaxy S23",
-      //   category: "Smartphones",
-      //   price: 45000,
-      //   originalPrice: 50000,
-      //   image: "📱",
-      //   imageUrl: "",
-      //   rating: 4.8,
-      //   reviews: 234,
-      //   inStock: true,
-      //   badge: "Best Seller",
-      //   qrId: "",
-      //   qrPassword: "",
-      //   trackingStatus: "Received",
-      //   ownerGender: "none"
-      // },
-      // {
-      //   id: 2,
-      //   name: "iPhone 15 Pro",
-      //   category: "Smartphones",
-      //   price: 99999,
-      //   originalPrice: 109999,
-      //   image: "📱",
-      //   imageUrl: "",
-      //   rating: 4.9,
-      //   reviews: 567,
-      //   inStock: true,
-      //   badge: "Premium",
-      //   qrId: "",
-      //   qrPassword: "",
-      //   trackingStatus: "Received",
-      //   ownerGender: "none"
-      // },
+      {
+        id: 1,
+        name: "Samsung Galaxy S23",
+        category: "Smartphones",
+        price: 45000,
+        originalPrice: 50000,
+        image: "📱",
+        imageUrl: "./public/assets/images/1.jpg",
+        rating: 4.8,
+        reviews: 234,
+        inStock: true,
+        badge: "Best Seller",
+        qrId: "",
+        qrPassword: "",
+        trackingStatus: "Received",
+        ownerGender: "none"
+      },
+      {
+        id: 2,
+        name: "iPhone 15 Pro",
+        category: "Smartphones",
+        price: 99999,
+        originalPrice: 109999,
+        image: "📱",
+        imageUrl: "./public/assets/images/2.jpg",
+        rating: 4.9,
+        reviews: 567,
+        inStock: true,
+        badge: "Premium",
+        qrId: "",
+        qrPassword: "",
+        trackingStatus: "Received",
+        ownerGender: "none"
+      },
+      {
+        id: 3,
+        name: "OnePlus 12",
+        category: "Smartphones",
+        price: 49999,
+        originalPrice: 55000,
+        image: "📱",
+        imageUrl: "./public/assets/images/3.jpg",
+        rating: 4.7,
+        reviews: 189,
+        inStock: true,
+        badge: null,
+        qrId: "",
+        qrPassword: "",
+        trackingStatus: "Received",
+        ownerGender: "none"
+      },
+      {
+        id: 4,
+        name: "Xiaomi 14",
+        category: "Smartphones",
+        price: 35000,
+        originalPrice: 40000,
+        image: "📱",
+        imageUrl: "./public/assets/images/4.jpg",
+        rating: 4.6,
+        reviews: 345,
+        inStock: true,
+        badge: null,
+        qrId: "",
+        qrPassword: "",
+        trackingStatus: "Received",
+        ownerGender: "none"
+      },
       // {
       //   id: 3,
       //   name: "OnePlus 12",
@@ -430,6 +468,10 @@ class ManjulaMobilesApp {
         const productId = Number.parseInt(actionElement.dataset.productId)
         this.addToCart(productId)
       }
+      if (actionElement && actionElement.dataset.action === "buy-now") {
+        const productId = Number.parseInt(actionElement.dataset.productId)
+        this.buyNow(productId)
+      }
       if (actionElement && actionElement.dataset.action === "toggle-cart") {
         this.toggleCart()
       }
@@ -492,8 +534,9 @@ class ManjulaMobilesApp {
         this.goToCarouselSlide(slideIndex)
       }
       
-      // Floating cart
+      // Floating cart - toggle cart sidebar
       if (e.target.closest('.floating-cart')) {
+        console.log('Floating cart clicked! Toggling cart...');
         this.toggleCart()
       }
       
@@ -520,6 +563,16 @@ class ManjulaMobilesApp {
       
       if (actionElement && actionElement.dataset.action === "close-image-modal") {
         this.closeImageModal()
+      }
+      
+      // Gallery modal
+      if (actionElement && actionElement.dataset.action === "open-gallery-modal") {
+        const imageUrl = actionElement.dataset.imageUrl
+        this.openGalleryModal(imageUrl)
+      }
+      
+      if (actionElement && actionElement.dataset.action === "close-gallery-modal") {
+        this.closeGalleryModal()
       }
     })
 
@@ -662,12 +715,31 @@ class ManjulaMobilesApp {
     const category = document.getElementById("productCategory")?.value;
     const price = Number.parseInt(document.getElementById("productPrice")?.value || 0);
     const originalPrice = Number.parseInt(document.getElementById("productOriginalPrice")?.value || 0);
-    const imageUrl = document.getElementById("productImageUrl")?.value;
-    const emoji = document.getElementById("productImage")?.value;
+    const imageUrl = document.getElementById("productImageUrl")?.value?.trim();
+    const imageUrl2 = document.getElementById("productImageUrl2")?.value?.trim();
+    const emoji = document.getElementById("productImage")?.value?.trim();
     const inStock = document.getElementById("productInStock")?.checked || false;
+
+    // Debug: Log form data
+    console.log('Saving product with:');
+    console.log('Name:', name);
+    console.log('ImageURL 1:', imageUrl);
+    console.log('ImageURL 2:', imageUrl2);
+    console.log('Emoji:', emoji);
 
     if (!name || !category || !price) {
       alert("Please fill all required fields");
+      return;
+    }
+
+    // Validate image URL length - increased limit for base64 images
+    // Base64 images can be large, so we allow up to 500KB (approximately 700,000 characters)
+    if (imageUrl && imageUrl.length > 700000) {
+      alert("❌ Image file is too large. Please use a smaller image (max 500KB).");
+      return;
+    }
+    if (imageUrl2 && imageUrl2.length > 700000) {
+      alert("❌ Image 2 file is too large. Please use a smaller image (max 500KB).");
       return;
     }
 
@@ -682,19 +754,15 @@ class ManjulaMobilesApp {
             category,
             price,
             originalPrice: originalPrice || price,
-            imageUrl,
+            imageUrl: imageUrl || "",
+            imageUrl2: imageUrl2 || "",
             image: emoji || "📦",
             inStock
           };
         }
         
-        // Save to MongoDB
-        const response = await fetch(`${this.API_URL}/products/${this.editingProductId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(this.products[productIndex])
-        });
-        if (!response.ok) throw new Error('Failed to update product');
+        // Save to localStorage
+        localStorage.setItem('manjula_products', JSON.stringify(this.products));
         this.editingProductId = null;
       } else {
         // Create new product
@@ -706,31 +774,30 @@ class ManjulaMobilesApp {
           price,
           originalPrice: originalPrice || price,
           image: emoji || "📦",
-          imageUrl: imageUrl,
+          imageUrl: imageUrl || "",
+          imageUrl2: imageUrl2 || "",
           rating: 4.5,
           reviews: 0,
           inStock,
-          badge: null
+          badge: null,
+          qrId: "",
+          qrPassword: "",
+          trackingStatus: "Received",
+          ownerGender: "none"
         };
 
-        // Save to MongoDB
-        const response = await fetch(`${this.API_URL}/products`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newProduct)
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Server error:', errorText);
-          if (response.status === 413) {
-            throw new Error('Image URL is too large. Please use a shorter URL or emoji instead.');
-          }
-          throw new Error(`Failed to save product: ${response.status}`);
-        }
-
-        const savedProduct = await response.json();
-        this.products.push(savedProduct);
+        // Save locally (no MongoDB required)
+        this.products.push(newProduct);
+        
+        // Debug: Log what's being saved
+        console.log('=== Saving New Product ===');
+        console.log('Product:', newProduct);
+        console.log('ImageURL 1 length:', newProduct.imageUrl.length);
+        console.log('ImageURL 2 length:', newProduct.imageUrl2.length);
+        console.log('========================');
+        
+        // Save to localStorage for persistence
+        localStorage.setItem('manjula_products', JSON.stringify(this.products));
       }
 
       alert("✅ Product saved successfully!");
@@ -746,15 +813,11 @@ class ManjulaMobilesApp {
   async deleteProduct(productId) {
     if (confirm("Are you sure you want to delete this product?")) {
       try {
-        // Delete from MongoDB
-        const response = await fetch(`${this.API_URL}/products/${productId}`, {
-          method: 'DELETE'
-        });
-        
-        if (!response.ok) throw new Error('Failed to delete product');
-        
         // Remove from local array
         this.products = this.products.filter((p) => p.id !== productId);
+        
+        // Save to localStorage
+        localStorage.setItem('manjula_products', JSON.stringify(this.products));
 
         this.renderPage("admin");
         alert('✅ Product deleted successfully!');
@@ -1209,13 +1272,13 @@ class ManjulaMobilesApp {
     const cartItemCount = this.cart.reduce((total, item) => total + item.quantity, 0);
     
     return `
-      <div class="floating-cart" data-action="toggle-cart">
+      <div class="floating-cart">
         <div class="floating-cart-icon">
           🛒
           ${cartItemCount > 0 ? `<span class="floating-cart-badge">${cartItemCount}</span>` : ''}
         </div>
         <div class="floating-cart-text">
-          View Cart ${cartItemCount > 0 ? `(${cartItemCount})` : ''}
+          ${cartItemCount > 0 ? `View Cart (${cartItemCount})` : 'Cart Empty'}
         </div>
       </div>
     `;
@@ -1479,6 +1542,23 @@ class ManjulaMobilesApp {
     }
   }
 
+  manualRefresh() {
+    // Reload products from localStorage and refresh the page
+    this.loadProductsFromStorage().then(() => {
+      this.renderPage(this.currentPage);
+      console.log('Products refreshed:', this.products.length);
+    });
+  }
+
+  // Debug function to clear localStorage (for testing)
+  clearStorage() {
+    localStorage.removeItem('manjula_products');
+    console.log('Storage cleared');
+    this.loadProductsFromStorage().then(() => {
+      this.renderPage(this.currentPage);
+    });
+  }
+
   renderCarouselSection() {
     const mobileBrands = [
       { 
@@ -1624,6 +1704,13 @@ class ManjulaMobilesApp {
           </div>
           ${this.renderShoppingCart()}
         </div>
+        
+        <div class="gallery-modal" id="galleryModal" data-action="close-gallery-modal">
+          <div class="gallery-modal-content" onclick="event.stopPropagation()">
+            <button class="gallery-modal-close" data-action="close-gallery-modal">✕</button>
+            <img src="" alt="Product Image" class="gallery-modal-image" id="galleryModalImage">
+          </div>
+        </div>
       </div>
     `
     return html
@@ -1651,17 +1738,118 @@ class ManjulaMobilesApp {
     }
   }
 
+
+
+  openGalleryModal(imageUrl) {
+    const modal = document.getElementById('galleryModal');
+    const modalImage = document.getElementById('galleryModalImage');
+    
+    if (modal && modalImage) {
+      modalImage.src = imageUrl;
+      modal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+  }
+
+  closeGalleryModal() {
+    const modal = document.getElementById('galleryModal');
+    
+    if (modal) {
+      modal.classList.remove('active');
+      document.body.style.overflow = 'auto';
+    }
+  }
+
+  switchProductImage(dotElement, imageUrl) {
+    // Find the image element
+    const slider = dotElement.closest('.product-image-slider');
+    const img = slider.querySelector('.product-img-main');
+    
+    // Change image with fade effect
+    img.style.opacity = '0';
+    setTimeout(() => {
+      img.src = imageUrl;
+      img.style.opacity = '1';
+    }, 150);
+    
+    // Update active dot
+    const dots = slider.querySelectorAll('.img-dot');
+    dots.forEach(dot => dot.classList.remove('active'));
+    dots.forEach(dot => {
+      if (dot.getAttribute('onclick').includes(imageUrl)) {
+        dot.classList.add('active');
+        dot.style.background = '#dc2626';
+      } else {
+        dot.classList.remove('active');
+        dot.style.background = 'rgba(255,255,255,0.5)';
+      }
+    });
+  }
+
+
+
   renderProductCard(product) {
     const discountPercent = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
-    const displayImage = product.imageUrl
-      ? `<img src="${product.imageUrl}" style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;" data-action="open-image-modal" data-image-url="${product.imageUrl}">`
-      : `<span>${product.image}</span>`
-
+    
+    // Check if product has multiple images
+    const hasMultipleImages = product.imageUrl && product.imageUrl2 && 
+                              product.imageUrl.trim() !== "" && product.imageUrl2.trim() !== "";
+    
+    // Priority: imageUrl > default image > emoji
+    let displayContent = "";
+    let modalImageUrl = "";
+    
+    // Debug: Log product data to console
+    console.log('=== Product Card Debug ===');
+    console.log('Product ID:', product.id);
+    console.log('Product Name:', product.name);
+    console.log('ImageURL 1:', product.imageUrl);
+    console.log('ImageURL 1 length:', product.imageUrl ? product.imageUrl.length : 0);
+    console.log('ImageURL 2:', product.imageUrl2);
+    console.log('ImageURL 2 length:', product.imageUrl2 ? product.imageUrl2.length : 0);
+    console.log('Has Multiple Images:', hasMultipleImages);
+    console.log('Image emoji:', product.image);
+    console.log('========================');
+    
+    if (product.imageUrl && product.imageUrl.trim() !== "") {
+      // Use image URL if provided - with image switching if second image exists
+      if (hasMultipleImages) {
+        displayContent = `
+          <div class="product-image-slider" style="position: relative; width: 100%; height: 100%;">
+            <img src="${product.imageUrl}" alt="${product.name}" class="product-img-main" data-img1="${product.imageUrl}" data-img2="${product.imageUrl2}" style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s ease;" onerror="this.style.display='none';">
+            <div class="image-dots" style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 2;">
+              <span class="img-dot active" onclick="app.switchProductImage(this, '${product.imageUrl}')" style="width: 8px; height: 8px; border-radius: 50%; background: #dc2626; cursor: pointer; border: 2px solid white;"></span>
+              <span class="img-dot" onclick="app.switchProductImage(this, '${product.imageUrl2}')" style="width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.5); cursor: pointer; border: 2px solid white;"></span>
+            </div>
+          </div>
+        `;
+      } else {
+        displayContent = `<img src="${product.imageUrl}" alt="${product.name}" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`;
+      }
+      modalImageUrl = product.imageUrl;
+    } else if (product.image && product.image.trim() !== "" && product.image !== "📦") {
+      // Use emoji if no URL but emoji is provided (and not default)
+      displayContent = `<span style="font-size: 48px; display: flex; align-items: center; justify-content: center; height: 100%;">${product.image}</span>`;
+      modalImageUrl = "./public/assets/images/1.jpg"; // Default for modal
+    } else {
+      // Use default image
+      displayContent = `<img src="./public/assets/images/1.jpg" alt="${product.name}" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease;">`;
+      modalImageUrl = "./public/assets/images/1.jpg";
+    }
+    
     return `
       <div class="product-card">
-        <div class="product-image">
+        <div class="product-image gallery-style-image" data-action="open-gallery-modal" data-image-url="${modalImageUrl}">
           ${product.badge ? `<div class="product-badge">${product.badge}</div>` : ""}
-          ${displayImage}
+          ${displayContent}
+          ${displayContent.includes('onerror') ? `<span style="font-size: 48px; display: none; align-items: center; justify-content: center; height: 100%;">${product.image || "📦"}</span>` : ''}
+          ${displayContent.includes('<img') ? `
+          <div class="gallery-image-overlay">
+            <div class="gallery-overlay-content">
+              <h4 style="color: white; font-size: 16px; font-weight: 600; margin-bottom: 4px;">${product.name}</h4>
+              <p style="color: rgba(255,255,255,0.9); font-size: 14px;">Click to view</p>
+            </div>
+          </div>` : ''}
         </div>
         <div class="product-info">
           <div class="product-category">${product.category}</div>
@@ -1680,7 +1868,7 @@ class ManjulaMobilesApp {
           <div class="product-stock">${product.inStock ? "In Stock" : "Out of Stock"}</div>
           <div class="product-buttons">
             <button class="btn btn-primary" data-action="add-to-cart" data-product-id="${product.id}" ${!product.inStock ? "disabled" : ""} style="flex: 1;">Add to Cart</button>
-            <button class="btn btn-secondary" style="flex: 1;">Details</button>
+            <button class="btn btn-secondary" data-action="buy-now" data-product-id="${product.id}" ${!product.inStock ? "disabled" : ""} style="flex: 1;">Buy Now</button>
           </div>
         </div>
       </div>
@@ -1751,6 +1939,21 @@ class ManjulaMobilesApp {
     }
   }
 
+  buyNow(productId) {
+    const product = this.products.find((p) => p.id === productId)
+    if (product) {
+      // Add to cart if not already there
+      const existingItem = this.cart.find((item) => item.id === productId)
+      if (existingItem) {
+        existingItem.quantity += 1
+      } else {
+        this.cart.push({ ...product, quantity: 1 })
+      }
+      // Go directly to checkout
+      this.renderPage("checkout")
+    }
+  }
+
   removeFromCart(itemId) {
     this.cart = this.cart.filter((item) => item.id !== itemId)
     this.renderPage("products")
@@ -1778,7 +1981,17 @@ class ManjulaMobilesApp {
 
   toggleCart() {
     this.cartOpen = !this.cartOpen
-    this.renderPage("products")
+    const cart = document.querySelector('.shopping-cart')
+    if (cart) {
+      if (this.cartOpen) {
+        cart.classList.add('active')
+      } else {
+        cart.classList.remove('active')
+      }
+    } else {
+      // If cart doesn't exist, re-render the page
+      this.renderPage("products")
+    }
   }
 
   showCartNotification(message) {
@@ -2471,17 +2684,20 @@ class ManjulaMobilesApp {
             </div>
 
             <div class="form-field">
-              <label class="form-label">Product Image</label>
-              <div style="margin-bottom: 12px;">
-                <p style="color: #94a3b8; font-size: 12px; margin-bottom: 8px;">Option 1: Image URL</p>
-                <input type="url" class="input" placeholder="https://example.com/image.jpg" id="productImageUrl">
+              <label class="form-label">Product Images</label>
+              <div style="margin-bottom: 16px; padding: 16px; background: rgba(51, 65, 85, 0.3); border-radius: 8px;">
+                <p style="color: #94a3b8; font-size: 12px; margin-bottom: 8px; font-weight: 600;">Image 1 (Main)</p>
+                <input type="url" class="input" placeholder="https://example.com/image1.jpg" id="productImageUrl" style="margin-bottom: 8px;">
+                <input type="file" class="input" accept="image/*" id="productImageFile1" onchange="app.handleImageUpload(event, 1)" style="font-size: 12px;">
+              </div>
+              <div style="margin-bottom: 16px; padding: 16px; background: rgba(51, 65, 85, 0.3); border-radius: 8px;">
+                <p style="color: #94a3b8; font-size: 12px; margin-bottom: 8px; font-weight: 600;">Image 2 (Secondary)</p>
+                <input type="url" class="input" placeholder="https://example.com/image2.jpg" id="productImageUrl2" style="margin-bottom: 8px;">
+                <input type="file" class="input" accept="image/*" id="productImageFile2" onchange="app.handleImageUpload(event, 2)" style="font-size: 12px;">
+              </div>
               </div>
               <div style="margin-bottom: 12px;">
-                <p style="color: #94a3b8; font-size: 12px; margin-bottom: 8px;">Option 2: Upload File</p>
-                <input type="file" class="input" accept="image/*" id="productImageFile" onchange="app.handleImageUpload(event)">
-              </div>
-              <div style="margin-bottom: 12px;">
-                <p style="color: #94a3b8; font-size: 12px; margin-bottom: 8px;">Option 3: Emoji/Icon</p>
+                <p style="color: #94a3b8; font-size: 12px; margin-bottom: 8px;">Emoji/Icon (if no images)</p>
                 <input type="text" class="input" placeholder="📱 or 🔧 or 📦" id="productImage" maxlength="2">
               </div>
             </div>
@@ -2539,17 +2755,19 @@ class ManjulaMobilesApp {
             </div>
 
             <div class="form-field">
-              <label class="form-label">Product Image</label>
-              <div style="margin-bottom: 12px;">
-                <p style="color: #94a3b8; font-size: 12px; margin-bottom: 8px;">Option 1: Image URL</p>
-                <input type="url" class="input" placeholder="https://example.com/image.jpg" id="productImageUrl" value="${product.imageUrl || ""}">
+              <label class="form-label">Product Images</label>
+              <div style="margin-bottom: 16px; padding: 16px; background: rgba(51, 65, 85, 0.3); border-radius: 8px;">
+                <p style="color: #94a3b8; font-size: 12px; margin-bottom: 8px; font-weight: 600;">Image 1 (Main)</p>
+                <input type="url" class="input" placeholder="https://example.com/image1.jpg" id="productImageUrl" value="${product.imageUrl || ""}" style="margin-bottom: 8px;">
+                <input type="file" class="input" accept="image/*" id="productImageFile1" onchange="app.handleImageUpload(event, 1)" style="font-size: 12px;">
+              </div>
+              <div style="margin-bottom: 16px; padding: 16px; background: rgba(51, 65, 85, 0.3); border-radius: 8px;">
+                <p style="color: #94a3b8; font-size: 12px; margin-bottom: 8px; font-weight: 600;">Image 2 (Secondary)</p>
+                <input type="url" class="input" placeholder="https://example.com/image2.jpg" id="productImageUrl2" value="${product.imageUrl2 || ""}" style="margin-bottom: 8px;">
+                <input type="file" class="input" accept="image/*" id="productImageFile2" onchange="app.handleImageUpload(event, 2)" style="font-size: 12px;">
               </div>
               <div style="margin-bottom: 12px;">
-                <p style="color: #94a3b8; font-size: 12px; margin-bottom: 8px;">Option 2: Upload File</p>
-                <input type="file" class="input" id="productImageFile" onchange="app.handleImageUpload(event)">
-              </div>
-              <div style="margin-bottom: 12px;">
-                <p style="color: #94a3b8; font-size: 12px; margin-bottom: 8px;">Option 3: Emoji/Icon</p>
+                <p style="color: #94a3b8; font-size: 12px; margin-bottom: 8px;">Emoji/Icon (if no images)</p>
                 <input type="text" class="input" value="${product.image}" id="productImage" maxlength="2">
               </div>
             </div>
@@ -2567,13 +2785,20 @@ class ManjulaMobilesApp {
     `
   }
 
-  handleImageUpload(event) {
+  handleImageUpload(event, imageNumber = 1) {
     const file = event.target.files[0]
     if (file) {
       const reader = new FileReader()
       reader.onload = (e) => {
         const base64Image = e.target.result
-        document.getElementById("productImageUrl").value = base64Image
+        // Put the image in the correct URL field based on imageNumber
+        if (imageNumber === 1) {
+          document.getElementById("productImageUrl").value = base64Image
+          console.log('Image 1 uploaded and set to URL field 1');
+        } else if (imageNumber === 2) {
+          document.getElementById("productImageUrl2").value = base64Image
+          console.log('Image 2 uploaded and set to URL field 2');
+        }
       }
       reader.readAsDataURL(file)
     }
