@@ -696,10 +696,8 @@ class ManjulaMobilesApp {
         
         alert("✅ Product updated successfully!");
       } else {
-        // Create new product
-        const newId = Math.max(...this.products.map((p) => p.id), 0) + 1;
+        // Create new product - Don't send 'id', let MongoDB generate _id
         const newProduct = {
-          id: newId,
           name,
           category,
           price,

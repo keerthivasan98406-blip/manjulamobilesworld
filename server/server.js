@@ -40,6 +40,7 @@ const productSchema = new mongoose.Schema({
   originalPrice: Number,
   image: String,
   imageUrl: String,
+  imageUrl2: String,
   rating: Number,
   reviews: Number,
   inStock: Boolean,
@@ -51,6 +52,17 @@ const productSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const Product = mongoose.model('Product', productSchema);
+
+// Drop the problematic 'id' index if it exists
+Product.collection.dropIndex('id_1').then(() => {
+  console.log('✅ Dropped id_1 index');
+}).catch(err => {
+  if (err.code === 27) {
+    console.log('ℹ️ Index id_1 does not exist (this is fine)');
+  } else {
+    console.log('ℹ️ Could not drop index:', err.message);
+  }
+});
 
 // Tracking Schema
 const trackingSchema = new mongoose.Schema({
