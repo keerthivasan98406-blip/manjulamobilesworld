@@ -116,8 +116,13 @@ io.on('connection', (socket) => {
 // Get all products
 app.get('/api/products', async (req, res) => {
   try {
-    const products = await Product.find().sort({ id: 1 });
-    res.json(products);
+    const products = await Product.find().sort({ createdAt: 1 });
+    // Transform MongoDB _id to id for client compatibility
+    const transformedProducts = products.map(p => ({
+      ...p.toObject(),
+      id: p._id.toString()
+    }));
+    res.json(transformedProducts);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -128,8 +133,12 @@ app.post('/api/products', async (req, res) => {
   try {
     const product = new Product(req.body);
     await product.save();
-    io.emit('product-added', product);
-    res.json(product);
+    const transformedProduct = {
+      ...product.toObject(),
+      id: product._id.toString()
+    };
+    io.emit('product-added', transformedProduct);
+    res.json(transformedProduct);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -150,9 +159,14 @@ app.patch('/api/products/:id', async (req, res) => {
       return res.status(404).json({ error: "Product not found" });
     }
 
-    io.emit('product-updated', product);
+    const transformedProduct = {
+      ...product.toObject(),
+      id: product._id.toString()
+    };
 
-    res.json(product);
+    io.emit('product-updated', transformedProduct);
+
+    res.json(transformedProduct);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

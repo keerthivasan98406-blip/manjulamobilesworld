@@ -75,9 +75,11 @@ class ManjulaMobilesApp {
 
     this.socket.on('product-added', (product) => {
       console.log('📦 New product added:', product);
-      const exists = this.products.find(p => p.id === product.id);
+      const exists = this.products.find(p => p.id === product.id || p._id === product._id);
       if (!exists) {
         this.products.push(product);
+        // Save to localStorage as backup
+        localStorage.setItem('manjula_products', JSON.stringify(this.products));
         if (this.currentPage === 'products' || this.currentPage === 'admin') {
           this.renderPage(this.currentPage);
         }
@@ -86,9 +88,11 @@ class ManjulaMobilesApp {
 
     this.socket.on('product-updated', (product) => {
       console.log('🔄 Product updated:', product);
-      const index = this.products.findIndex(p => p.id === product.id);
+      const index = this.products.findIndex(p => p.id === product.id || p._id === product._id);
       if (index !== -1) {
         this.products[index] = product;
+        // Save to localStorage as backup
+        localStorage.setItem('manjula_products', JSON.stringify(this.products));
         if (this.currentPage === 'products' || this.currentPage === 'admin') {
           this.renderPage(this.currentPage);
         }
@@ -97,7 +101,9 @@ class ManjulaMobilesApp {
 
     this.socket.on('product-deleted', (data) => {
       console.log('🗑️ Product deleted:', data.id);
-      this.products = this.products.filter(p => p.id !== data.id);
+      this.products = this.products.filter(p => p.id !== data.id && p._id !== data.id);
+      // Save to localStorage as backup
+      localStorage.setItem('manjula_products', JSON.stringify(this.products));
       if (this.currentPage === 'products' || this.currentPage === 'admin') {
         this.renderPage(this.currentPage);
       }
@@ -108,7 +114,7 @@ class ManjulaMobilesApp {
       const exists = this.trackingData.find(t => t.qrId === tracking.qrId);
       if (!exists) {
         this.trackingData.push(tracking);
-        if (this.currentPage === 'admin' || this.currentPage === 'tracking') {
+        if (this.currentPage === 'admin' || this.currentPage === 'tracking' || this.currentPage === 'tracking-page') {
           this.renderPage(this.currentPage);
         }
       }
@@ -119,7 +125,7 @@ class ManjulaMobilesApp {
       const index = this.trackingData.findIndex(t => t.qrId === tracking.qrId);
       if (index !== -1) {
         this.trackingData[index] = tracking;
-        if (this.currentPage === 'admin' || this.currentPage === 'tracking') {
+        if (this.currentPage === 'admin' || this.currentPage === 'tracking' || this.currentPage === 'tracking-page') {
           this.renderPage(this.currentPage);
         }
       }
@@ -128,7 +134,7 @@ class ManjulaMobilesApp {
     this.socket.on('tracking-deleted', (data) => {
       console.log('🗑️ Tracking deleted:', data.qrId);
       this.trackingData = this.trackingData.filter(t => t.qrId !== data.qrId);
-      if (this.currentPage === 'admin' || this.currentPage === 'tracking') {
+      if (this.currentPage === 'admin' || this.currentPage === 'tracking' || this.currentPage === 'tracking-page') {
         this.renderPage(this.currentPage);
       }
     });
@@ -167,21 +173,34 @@ class ManjulaMobilesApp {
   // Product Management Methods - MongoDB API
   async loadProductsFromStorage() {
     try {
-      // Load from localStorage first
+      // Load from MongoDB database via API
+      const response = await fetch(`${this.API_URL}/products`);
+      if (response.ok) {
+        this.products = await response.json();
+        console.log('✅ Loaded products from MongoDB:', this.products.length);
+        
+        // Save to localStorage as backup
+        localStorage.setItem('manjula_products', JSON.stringify(this.products));
+      } else {
+        console.log('⚠️ Failed to load from database, using localStorage backup');
+        const savedProducts = localStorage.getItem('manjula_products');
+        if (savedProducts) {
+          this.products = JSON.parse(savedProducts);
+        } else {
+          this.products = this.getDefaultProducts();
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error loading products from database:', error);
+      // Fallback to localStorage
       const savedProducts = localStorage.getItem('manjula_products');
       if (savedProducts) {
         this.products = JSON.parse(savedProducts);
-        console.log('✅ Loaded products from localStorage:', this.products.length);
+        console.log('✅ Loaded products from localStorage backup:', this.products.length);
       } else {
-        console.log('⚠️ Using default products');
         this.products = this.getDefaultProducts();
-        // Save default products to localStorage
         localStorage.setItem('manjula_products', JSON.stringify(this.products));
       }
-    } catch (error) {
-      console.error('❌ Error loading products:', error);
-      this.products = this.getDefaultProducts();
-      localStorage.setItem('manjula_products', JSON.stringify(this.products));
     }
   }
 
@@ -742,8 +761,18 @@ class ManjulaMobilesApp {
   async deleteProduct(productId) {
     if (confirm("Are you sure you want to delete this product?")) {
       try {
+        // Find the product to get its MongoDB _id
+        const product = this.products.find(p => p.id === productId);
+        if (!product) {
+          alert('Product not found');
+          return;
+        }
+
+        // Use MongoDB _id for deletion
+        const mongoId = product._id || productId;
+        
         // Delete from database via API
-        const response = await fetch(`${this.API_URL}/products/${productId}`, {
+        const response = await fetch(`${this.API_URL}/products/${mongoId}`, {
           method: 'DELETE'
         });
 
@@ -751,7 +780,7 @@ class ManjulaMobilesApp {
           throw new Error('Failed to delete product from database');
         }
 
-        console.log('✅ Product deleted from database:', productId);
+        console.log('✅ Product deleted from database:', mongoId);
         
         // Remove from local array
         this.products = this.products.filter((p) => p.id !== productId);
