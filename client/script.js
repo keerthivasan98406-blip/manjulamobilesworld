@@ -464,14 +464,23 @@ class ManjulaMobilesApp {
       
       // Gallery modal
       if (actionElement && actionElement.dataset.action === "open-gallery-modal") {
-        // Get the current displayed image (might be img1 or img2)
-        const currentImageUrl = actionElement.src || actionElement.dataset.imageUrl;
-        const imageUrl = actionElement.dataset.imageUrl || currentImageUrl;
-        const imageUrl2 = actionElement.dataset.imageUrl2;
-        const currentIndex = parseInt(actionElement.dataset.current) || 1;
+        // Get the current displayed image from the img element
+        const imgElement = actionElement.tagName === 'IMG' ? actionElement : actionElement.querySelector('img');
         
-        // Open modal with the currently displayed image
-        this.openGalleryModal(currentImageUrl, imageUrl2, currentIndex, imageUrl)
+        if (imgElement) {
+          const currentImageUrl = imgElement.src;
+          const img1 = imgElement.dataset.img1 || imgElement.dataset.imageUrl;
+          const img2 = imgElement.dataset.img2 || imgElement.dataset.imageUrl2;
+          const currentIndex = parseInt(imgElement.dataset.current) || 1;
+          
+          // Open modal with the currently displayed image
+          this.openGalleryModal(currentImageUrl, img2, currentIndex, img1)
+        } else {
+          // Fallback for non-image elements
+          const imageUrl = actionElement.dataset.imageUrl;
+          const imageUrl2 = actionElement.dataset.imageUrl2;
+          this.openGalleryModal(imageUrl, imageUrl2, 1, imageUrl)
+        }
       }
       
       if (actionElement && actionElement.dataset.action === "close-gallery-modal") {
@@ -1878,6 +1887,8 @@ class ManjulaMobilesApp {
   }
 
   switchToImage(arrowElement, direction) {
+    event.stopPropagation(); // Prevent modal from opening
+    
     // Find the slider and image element
     const slider = arrowElement.closest('.product-image-slider');
     const img = slider.querySelector('.product-img-main');
@@ -1901,7 +1912,6 @@ class ManjulaMobilesApp {
     setTimeout(() => {
       img.src = newImageUrl;
       img.setAttribute('data-current', currentIndex);
-      img.setAttribute('data-image-url', newImageUrl); // Update for modal
       img.style.opacity = '1';
     }, 150);
     
@@ -1918,7 +1928,8 @@ class ManjulaMobilesApp {
   }
 
   switchToImageByDot(dotElement, index, img1, img2) {
-    event.stopPropagation();
+    if (event) event.stopPropagation(); // Prevent modal from opening
+    
     const slider = dotElement.closest('.product-image-slider');
     const img = slider.querySelector('.product-img-main');
     const dots = slider.querySelectorAll('.img-dot');
@@ -1930,7 +1941,6 @@ class ManjulaMobilesApp {
     setTimeout(() => {
       img.src = newImageUrl;
       img.setAttribute('data-current', index);
-      img.setAttribute('data-image-url', newImageUrl); // Update for modal
       img.style.opacity = '1';
     }, 150);
     
