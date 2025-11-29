@@ -497,13 +497,11 @@ class ManjulaMobilesApp {
       
       // Image navigation arrows
       if (actionElement && actionElement.dataset.action === "switch-image-prev") {
-        e.stopPropagation()
-        this.switchToImage(actionElement, 'prev')
+        this.switchToImage(actionElement, 'prev', e)
       }
       
       if (actionElement && actionElement.dataset.action === "switch-image-next") {
-        e.stopPropagation()
-        this.switchToImage(actionElement, 'next')
+        this.switchToImage(actionElement, 'next', e)
       }
     })
 
@@ -1904,12 +1902,16 @@ class ManjulaMobilesApp {
     });
   }
 
-  switchToImage(arrowElement, direction) {
-    event.stopPropagation(); // Prevent modal from opening
+  switchToImage(arrowElement, direction, e) {
+    if (e) e.stopPropagation(); // Prevent modal from opening
     
     // Find the slider and image element
     const slider = arrowElement.closest('.product-image-slider');
+    if (!slider) return;
+    
     const img = slider.querySelector('.product-img-main');
+    if (!img) return;
+    
     const dots = slider.querySelectorAll('.img-dot');
     
     // Get current image index
@@ -1924,6 +1926,8 @@ class ManjulaMobilesApp {
     
     // Get the image URL
     const newImageUrl = currentIndex === 1 ? img.getAttribute('data-img1') : img.getAttribute('data-img2');
+    
+    if (!newImageUrl) return;
     
     // Change image with fade effect
     img.style.opacity = '0';
@@ -1945,14 +1949,19 @@ class ManjulaMobilesApp {
     });
   }
 
-  switchToImageByDot(dotElement, index, img1, img2) {
-    if (event) event.stopPropagation(); // Prevent modal from opening
+  switchToImageByDot(dotElement, index, img1, img2, e) {
+    if (e) e.stopPropagation(); // Prevent modal from opening
     
     const slider = dotElement.closest('.product-image-slider');
+    if (!slider) return;
+    
     const img = slider.querySelector('.product-img-main');
+    if (!img) return;
+    
     const dots = slider.querySelectorAll('.img-dot');
     
     const newImageUrl = index === 1 ? img1 : img2;
+    if (!newImageUrl) return;
     
     // Change image with fade effect
     img.style.opacity = '0';
@@ -2017,9 +2026,9 @@ class ManjulaMobilesApp {
             </button>
             
             <!-- Dots Indicator -->
-            <div class="image-dots" onclick="event.stopPropagation()" style="position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 99;">
-              <span class="img-dot active" data-index="1" onclick="app.switchToImageByDot(this, 1, '${product.imageUrl}', '${product.imageUrl2}')" style="width: 8px; height: 8px; border-radius: 50%; background: #dc2626; cursor: pointer; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></span>
-              <span class="img-dot" data-index="2" onclick="app.switchToImageByDot(this, 2, '${product.imageUrl}', '${product.imageUrl2}')" style="width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.6); cursor: pointer; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></span>
+            <div class="image-dots" style="position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 99;">
+              <span class="img-dot active" data-index="1" onclick="event.stopPropagation(); app.switchToImageByDot(this, 1, '${product.imageUrl}', '${product.imageUrl2}', event)" style="width: 8px; height: 8px; border-radius: 50%; background: #dc2626; cursor: pointer; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></span>
+              <span class="img-dot" data-index="2" onclick="event.stopPropagation(); app.switchToImageByDot(this, 2, '${product.imageUrl}', '${product.imageUrl2}', event)" style="width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.6); cursor: pointer; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></span>
             </div>
           </div>
         `;
