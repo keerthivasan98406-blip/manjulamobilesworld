@@ -75,7 +75,13 @@ class ManjulaMobilesApp {
 
     this.socket.on('product-added', (product) => {
       console.log('📦 New product added:', product);
-      const exists = this.products.find(p => p.id === product.id || p._id === product._id);
+      // Check for duplicates using both id and _id
+      const exists = this.products.find(p => 
+        String(p.id) === String(product.id) || 
+        String(p._id) === String(product._id) ||
+        String(p.id) === String(product._id) ||
+        String(p._id) === String(product.id)
+      );
       if (!exists) {
         this.products.push(product);
         // Save to localStorage as backup
@@ -83,6 +89,8 @@ class ManjulaMobilesApp {
         if (this.currentPage === 'products' || this.currentPage === 'admin') {
           this.renderPage(this.currentPage);
         }
+      } else {
+        console.log('⚠️ Product already exists, skipping duplicate');
       }
     });
 
@@ -759,19 +767,29 @@ class ManjulaMobilesApp {
         console.log('✅ Product saved to database:', savedProduct);
         
         // Check if product already exists before adding (prevent duplicates)
-        const exists = this.products.find(p => String(p.id) === String(savedProduct.id) || String(p._id) === String(savedProduct._id));
+        const exists = this.products.find(p => 
+          String(p.id) === String(savedProduct.id) || 
+          String(p._id) === String(savedProduct._id) ||
+          String(p.id) === String(savedProduct._id) ||
+          String(p._id) === String(savedProduct.id)
+        );
+        
         if (!exists) {
           // Add to local array
           this.products.push(savedProduct);
           
           // Save to localStorage as backup
           localStorage.setItem('manjula_products', JSON.stringify(this.products));
+          console.log('✅ Product added to local array');
+        } else {
+          console.log('⚠️ Product already exists in local array, skipping');
         }
         
         alert("✅ Product saved successfully to database!");
       }
 
-      this.renderPage("products");
+      // Stay in admin panel instead of going to products page
+      this.renderPage("admin");
     } catch (error) {
       console.error('❌ Error saving product:', error);
       alert(`❌ Error: ${error.message}\n\nPlease check your internet connection and try again.`);
