@@ -181,34 +181,20 @@ class ManjulaMobilesApp {
   // Product Management Methods - MongoDB API
   async loadProductsFromStorage() {
     try {
-      // Load from MongoDB database via API
+      // Load ONLY from database with timeout
+      console.log('📡 Loading products from database...');
+      
       const response = await fetch(`${this.API_URL}/products`);
       if (response.ok) {
         this.products = await response.json();
-        console.log('✅ Loaded products from MongoDB:', this.products.length);
-        
-        // Save to localStorage as backup
-        localStorage.setItem('manjula_products', JSON.stringify(this.products));
+        console.log('✅ Loaded products from database:', this.products.length);
       } else {
-        console.log('⚠️ Failed to load from database, using localStorage backup');
-        const savedProducts = localStorage.getItem('manjula_products');
-        if (savedProducts) {
-          this.products = JSON.parse(savedProducts);
-        } else {
-          this.products = this.getDefaultProducts();
-        }
+        console.log('⚠️ Failed to load from database');
+        this.products = [];
       }
     } catch (error) {
-      console.error('❌ Error loading products from database:', error);
-      // Fallback to localStorage
-      const savedProducts = localStorage.getItem('manjula_products');
-      if (savedProducts) {
-        this.products = JSON.parse(savedProducts);
-        console.log('✅ Loaded products from localStorage backup:', this.products.length);
-      } else {
-        this.products = this.getDefaultProducts();
-        localStorage.setItem('manjula_products', JSON.stringify(this.products));
-      }
+      console.error('❌ Error loading products:', error);
+      this.products = [];
     }
   }
 
@@ -319,29 +305,199 @@ class ManjulaMobilesApp {
     }
   }
 
-  deleteOrderFromStorage(orderId) {
-    this.orders = this.orders.filter(o => o.id !== orderId);
+  async deleteOrderFromStorage(orderId) {
+    try {
+      // Find the order to get the correct orderId
+      console.log('🔍 Looking for order with ID:', orderId);
+      console.log('📋 All orders:', this.orders.map(o => ({ id: o.id, orderId: o.orderId })));
+      
+      // Convert to string for comparison (handles both string and number IDs)
+      const orderIdStr = String(orderId);
+      const order = this.orders.find(o => String(o.id) === orderIdStr || String(o.orderId) === orderIdStr || String(o._id) === orderIdStr);
+      
+      if (!order) {
+        console.error('❌ Order not found in local array');
+        console.error('❌ Searched for ID:', orderIdStr);
+        console.error('❌ Available IDs:', this.orders.map(o => ({ id: String(o.id), orderId: String(o.orderId), _id: String(o._id) })));
+        throw new Error('Order not found in local array');
+      }
+      
+      console.log('✅ Found order:', order);
+
+      // Use the orderId field from the order (this is what's stored in database)
+      const dbOrderId = order.orderId || order.id;
+      
+      console.log('🗑️ Deleting order from database:', dbOrderId);
+      console.log('📡 API URL:', `${this.API_URL}/orders/${dbOrderId}`);
+      
+      // Delete from database via API
+      const response = await fetch(`${this.API_URL}/orders/${dbOrderId}`, {
+        method: 'DELETE'
+      });
+
+      console.log('📥 Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Server error response:', errorText);
+        throw new Error(`Failed to delete order: ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Order deleted from database:', result);
+      
+      // Remove from local array
+      this.orders = this.orders.filter(o => o.id !== orderId && o.orderId !== orderId && o.id !== dbOrderId && o.orderId !== dbOrderId);
+      console.log('✅ Order removed from local array');
+    } catch (error) {
+      console.error('❌ Error deleting order:', error);
+      throw error;
+    }
   }
 
   async init() {
-    await this.loadProductsFromStorage();
-    await this.loadTrackingFromStorage();
-    await this.loadOrdersFromStorage();
-    this.setupEventListeners();
-    this.renderPage("home");
+    try {
+      console.log('🚀 Initializing app...');
+      
+      // Show loading screen immediately
+      this.showLoadingScreen();
+      
+      console.log('📋 Setting up event listeners...');
+      // Setup event listeners
+      this.setupEventListeners();
+      console.log('✅ Event listeners attached');
+      
+      console.log('📦 Loading products from database...');
+      
+      // Load products from database - wait up to 7 seconds
+      await this.loadProductsFromStorage();
+      
+      console.log('✅ Products loaded or timeout reached');
+      
+      console.log('✅ Products loaded:', this.products.length);
+      
+      console.log('🎨 Rendering home page...');
+      // Render page with products from database
+      await this.renderPage("home");
+      console.log('✅ Home page rendered');
+      
+      // Load other data in background
+      Promise.all([
+        this.loadTrackingFromStorage(),
+        this.loadOrdersFromStorage()
+      ]).catch(error => {
+        console.error('❌ Error loading data:', error);
+      });
+      
+    } catch (error) {
+      console.error('❌ Error during initialization:', error);
+      // Don't show error screen - just use default products and continue
+      console.warn('⚠️ Website will continue with default products');
+    }
+  }
+
+  showLoadingScreen() {
+    const app = document.getElementById("app");
+    if (app) {
+      app.innerHTML = `
+        <div class="loading-screen">
+          <div class="loading-container">
+            <!-- Mobile Phone Icon with Animation -->
+            <div class="mobile-icon-wrapper">
+              <div class="mobile-phone">
+                <div class="phone-screen">
+                  <div class="loading-bars">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                  </div>
+                </div>
+                <div class="phone-button"></div>
+              </div>
+              <div class="signal-waves">
+                <div class="wave"></div>
+                <div class="wave"></div>
+                <div class="wave"></div>
+              </div>
+            </div>
+            
+            <!-- Digital Circuit Pattern -->
+            <div class="circuit-pattern">
+              <div class="circuit-line line-1"></div>
+              <div class="circuit-line line-2"></div>
+              <div class="circuit-line line-3"></div>
+              <div class="circuit-dot dot-1"></div>
+              <div class="circuit-dot dot-2"></div>
+              <div class="circuit-dot dot-3"></div>
+            </div>
+            
+            <!-- Loading Text -->
+            <div class="loading-text">
+              <h2>Manjula Mobiles</h2>
+              <p class="loading-subtitle">Mobile Repair & Parts</p>
+              <div class="loading-progress">
+                <div class="progress-bar"></div>
+              </div>
+              <p class="loading-status">Loading products from database...</p>
+              <p class="loading-time">⏱️ Maximum wait: 7 seconds</p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  showErrorScreen(error) {
+    const app = document.getElementById("app");
+    if (app) {
+      app.innerHTML = `
+        <div class="loading-screen">
+          <div style="color: #dc2626; font-size: 48px;">⚠️</div>
+          <p style="color: #dc2626; font-weight: 600;">Failed to load products from database</p>
+          <p style="font-size: 14px; color: #6b7280; margin: 16px 0;">${error.message}</p>
+          <div style="background: #fef2f2; border: 2px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px 0; text-align: left; max-width: 400px;">
+            <p style="font-size: 13px; color: #000; margin: 8px 0;"><strong>Possible causes:</strong></p>
+            <ul style="font-size: 12px; color: #374151; margin: 8px 0; padding-left: 20px;">
+              <li>Server is not running</li>
+              <li>MongoDB connection is slow or down</li>
+              <li>Internet connection issues</li>
+              <li>Database query timeout (> 2 seconds)</li>
+            </ul>
+            <p style="font-size: 13px; color: #000; margin: 8px 0;"><strong>Solutions:</strong></p>
+            <ul style="font-size: 12px; color: #374151; margin: 8px 0; padding-left: 20px;">
+              <li>Check if server is running: <code>node server.js</code></li>
+              <li>Check MongoDB connection in server console</li>
+              <li>Check your internet connection</li>
+              <li>Try refreshing the page</li>
+            </ul>
+          </div>
+          <button class="btn btn-primary" onclick="location.reload()" style="margin-top: 16px;">Retry</button>
+        </div>
+      `;
+    }
   }
 
   setupEventListeners() {
     const app = document.getElementById("app")
     
+    if (!app) {
+      console.error('❌ App container not found!');
+      return;
+    }
+    
+    console.log('✅ App container found, attaching event listeners...');
+    
     // Event delegation for all click events
-    app.addEventListener("click", (e) => {
+    app.addEventListener("click", async (e) => {
       // Navigation and page routing - check both target and closest parent
       const pageElement = e.target.closest('[data-page]');
       if (pageElement && pageElement.dataset.page) {
+        e.preventDefault()
+        console.log('📄 Navigating to page:', pageElement.dataset.page);
         this.closeMobileMenu()
         this.closeServiceSubMenu()
-        this.renderPage(pageElement.dataset.page)
+        await this.renderPage(pageElement.dataset.page)
       }
       
       // Admin actions
@@ -472,6 +628,7 @@ class ManjulaMobilesApp {
       
       // Gallery modal
       if (actionElement && actionElement.dataset.action === "open-gallery-modal") {
+        console.log('🖼️ Opening gallery modal...');
         // Get the current displayed image from the img element
         const imgElement = actionElement.tagName === 'IMG' ? actionElement : actionElement.querySelector('img');
         
@@ -481,27 +638,47 @@ class ManjulaMobilesApp {
           const img2 = imgElement.dataset.img2 || imgElement.dataset.imageUrl2;
           const currentIndex = parseInt(imgElement.dataset.current) || 1;
           
+          console.log('📸 Image 1:', img1);
+          console.log('📸 Image 2:', img2);
+          console.log('📍 Current index:', currentIndex);
+          
           // Open modal with the currently displayed image
           this.openGalleryModal(currentImageUrl, img2, currentIndex, img1)
         } else {
           // Fallback for non-image elements
           const imageUrl = actionElement.dataset.imageUrl;
           const imageUrl2 = actionElement.dataset.imageUrl2;
+          console.log('📸 Fallback - Image 1:', imageUrl);
+          console.log('📸 Fallback - Image 2:', imageUrl2);
           this.openGalleryModal(imageUrl, imageUrl2, 1, imageUrl)
         }
       }
       
       if (actionElement && actionElement.dataset.action === "close-gallery-modal") {
-        this.closeGalleryModal()
+        // Only close if clicking the modal background, not the content
+        if (e.target.id === 'galleryModal' || e.target.classList.contains('gallery-modal-close')) {
+          this.closeGalleryModal()
+        }
       }
       
       // Image navigation arrows
       if (actionElement && actionElement.dataset.action === "switch-image-prev") {
+        e.stopPropagation(); // Prevent modal from opening
         this.switchToImage(actionElement, 'prev', e)
       }
       
       if (actionElement && actionElement.dataset.action === "switch-image-next") {
+        e.stopPropagation(); // Prevent modal from opening
         this.switchToImage(actionElement, 'next', e)
+      }
+      
+      // Image dots
+      if (actionElement && actionElement.dataset.action === "switch-to-image-dot") {
+        e.stopPropagation(); // Prevent modal from opening
+        const index = parseInt(actionElement.dataset.imgIndex);
+        const img1 = actionElement.dataset.img1;
+        const img2 = actionElement.dataset.img2;
+        this.switchToImageByDot(actionElement, index, img1, img2, e)
       }
     })
 
@@ -622,7 +799,7 @@ class ManjulaMobilesApp {
     }
   }
 
-  handleAdminLogin() {
+  async handleAdminLogin() {
     const phone = document.getElementById("adminPhone")?.value || ""
     const password = document.getElementById("adminPassword")?.value || ""
 
@@ -631,18 +808,18 @@ class ManjulaMobilesApp {
       // Save login state to localStorage so it persists
       localStorage.setItem('manjula_admin_logged_in', 'true')
       console.log('✅ Admin logged in - state saved to localStorage')
-      this.renderPage("admin")
+      await this.renderPage("admin")
     } else {
       alert("Invalid password.")
     }
   }
 
-  handleAdminLogout() {
+  async handleAdminLogout() {
     this.isAdminLoggedIn = false
     // Remove login state from localStorage
     localStorage.removeItem('manjula_admin_logged_in')
     console.log('✅ Admin logged out - state removed from localStorage')
-    this.renderPage("home")
+    await this.renderPage("home")
   }
 
   async saveProduct() {
@@ -750,19 +927,24 @@ class ManjulaMobilesApp {
         console.log('======================================');
 
         // Save to database via API
+        console.log('📤 Sending POST request to:', `${this.API_URL}/products`);
         const response = await fetch(`${this.API_URL}/products`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newProduct)
         });
 
+        console.log('📥 Response status:', response.status, response.statusText);
+
         if (!response.ok) {
           const errorText = await response.text();
+          console.error('❌ Server error response:', errorText);
           throw new Error(`Failed to save product to database: ${errorText}`);
         }
 
         const savedProduct = await response.json();
-        console.log('✅ Product saved to database:', savedProduct);
+        console.log('✅ Product saved to database successfully!');
+        console.log('📦 Saved product data:', savedProduct);
         
         // Check if product already exists before adding (prevent duplicates)
         const exists = this.products.find(p => 
@@ -894,7 +1076,9 @@ class ManjulaMobilesApp {
       if (!response.ok) throw new Error('Failed to save tracking');
 
       const savedTracking = await response.json();
-      this.trackingData.push(savedTracking);
+      
+      // Don't push here - Socket.IO will handle it to avoid duplicates
+      // this.trackingData.push(savedTracking);
       
       // Clear form
       document.getElementById("newTrackingQRId").value = "";
@@ -1204,12 +1388,19 @@ class ManjulaMobilesApp {
     }, 1000)
   }
 
-  renderPage(page) {
+  async renderPage(page) {
     const app = document.getElementById("app")
     this.currentPage = page
 
     if (page.startsWith("admin") && !this.isAdminLoggedIn) {
       page = "admin-login"
+    }
+
+    // Load orders from database when viewing orders page
+    if (page === "admin-orders" || page === "admin") {
+      console.log('📦 Loading orders from database...');
+      await this.loadOrdersFromStorage();
+      console.log('✅ Orders loaded:', this.orders.length);
     }
 
     let html = this.renderNavigation()
@@ -1723,7 +1914,7 @@ class ManjulaMobilesApp {
         </div>
         
         <div class="gallery-modal" id="galleryModal" data-action="close-gallery-modal">
-          <div class="gallery-modal-content" onclick="event.stopPropagation()">
+          <div class="gallery-modal-content">
             <button class="gallery-modal-close" data-action="close-gallery-modal">✕</button>
             <img src="" alt="Product Image" class="gallery-modal-image" id="galleryModalImage">
           </div>
@@ -1758,13 +1949,29 @@ class ManjulaMobilesApp {
 
 
   openGalleryModal(currentImageUrl, imageUrl2 = null, currentIndex = 1, imageUrl1 = null) {
+    console.log('🖼️ Opening gallery modal...');
+    console.log('Current Image:', currentImageUrl);
+    console.log('Image 2:', imageUrl2);
+    console.log('Current Index:', currentIndex);
+    
     const modal = document.getElementById('galleryModal');
     const modalContent = modal.querySelector('.gallery-modal-content');
     
-    if (modal && modalContent) {
-      // Check if product has multiple images
-      const hasMultipleImages = imageUrl2 && imageUrl2.trim() !== "";
-      const img1 = imageUrl1 || currentImageUrl;
+    if (!modal) {
+      console.error('❌ Gallery modal not found!');
+      return;
+    }
+    
+    if (!modalContent) {
+      console.error('❌ Modal content not found!');
+      return;
+    }
+    
+    // Check if product has multiple images
+    const hasMultipleImages = imageUrl2 && imageUrl2.trim() !== "";
+    const img1 = imageUrl1 || currentImageUrl;
+    
+    console.log('Has multiple images:', hasMultipleImages);
       
       if (hasMultipleImages) {
         // Create image slider for modal - start with the currently displayed image
@@ -1790,25 +1997,30 @@ class ManjulaMobilesApp {
             </div>
           </div>
         `;
-      } else {
-        // Single image
-        modalContent.innerHTML = `
-          <button class="gallery-modal-close" data-action="close-gallery-modal">✕</button>
-          <img src="${imageUrl}" alt="Product Image" class="gallery-modal-image" id="galleryModalImage" style="max-width: 90vw; max-height: 90vh; width: auto; height: auto; object-fit: contain;">
-        `;
-      }
-      
-      modal.classList.add('active');
-      document.body.style.overflow = 'hidden';
+    } else {
+      // Single image
+      modalContent.innerHTML = `
+        <button class="gallery-modal-close" data-action="close-gallery-modal">✕</button>
+        <img src="${currentImageUrl}" alt="Product Image" class="gallery-modal-image" id="galleryModalImage" style="max-width: 90vw; max-height: 90vh; width: auto; height: auto; object-fit: contain;">
+      `;
     }
+    
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    console.log('✅ Gallery modal opened');
   }
 
   switchGalleryImage(direction) {
+    console.log('🔄 Switching gallery image:', direction);
     const img = document.getElementById('galleryModalImage');
-    if (!img) return;
+    if (!img) {
+      console.error('❌ Gallery modal image not found!');
+      return;
+    }
     
     const dots = document.querySelectorAll('.gallery-dot');
     let currentIndex = parseInt(img.getAttribute('data-current')) || 1;
+    console.log('📍 Current index:', currentIndex);
     
     // Calculate new index
     if (direction === 'next') {
@@ -1816,9 +2028,18 @@ class ManjulaMobilesApp {
     } else if (direction === 'prev') {
       currentIndex = currentIndex === 1 ? 2 : 1;
     }
+    console.log('📍 New index:', currentIndex);
     
     // Get the image URL
-    const newImageUrl = currentIndex === 1 ? img.getAttribute('data-img1') : img.getAttribute('data-img2');
+    const img1 = img.getAttribute('data-img1');
+    const img2 = img.getAttribute('data-img2');
+    const newImageUrl = currentIndex === 1 ? img1 : img2;
+    console.log('🖼️ Switching to:', newImageUrl);
+    
+    if (!newImageUrl) {
+      console.error('❌ Image URL not found!');
+      return;
+    }
     
     // Change image with fade effect
     img.style.opacity = '0';
@@ -1826,6 +2047,7 @@ class ManjulaMobilesApp {
       img.src = newImageUrl;
       img.setAttribute('data-current', currentIndex);
       img.style.opacity = '1';
+      console.log('✅ Image switched successfully');
     }, 150);
     
     // Update dots
@@ -1841,11 +2063,23 @@ class ManjulaMobilesApp {
   }
 
   goToGalleryImage(index) {
+    console.log('🎯 Going to gallery image:', index);
     const img = document.getElementById('galleryModalImage');
-    if (!img) return;
+    if (!img) {
+      console.error('❌ Gallery modal image not found!');
+      return;
+    }
     
     const dots = document.querySelectorAll('.gallery-dot');
-    const newImageUrl = index === 1 ? img.getAttribute('data-img1') : img.getAttribute('data-img2');
+    const img1 = img.getAttribute('data-img1');
+    const img2 = img.getAttribute('data-img2');
+    const newImageUrl = index === 1 ? img1 : img2;
+    console.log('🖼️ Going to:', newImageUrl);
+    
+    if (!newImageUrl) {
+      console.error('❌ Image URL not found!');
+      return;
+    }
     
     // Change image with fade effect
     img.style.opacity = '0';
@@ -1853,6 +2087,7 @@ class ManjulaMobilesApp {
       img.src = newImageUrl;
       img.setAttribute('data-current', index);
       img.style.opacity = '1';
+      console.log('✅ Navigated to image', index);
     }, 150);
     
     // Update dots
@@ -1903,19 +2138,27 @@ class ManjulaMobilesApp {
   }
 
   switchToImage(arrowElement, direction, e) {
+    console.log('🔄 switchToImage called:', direction);
     if (e) e.stopPropagation(); // Prevent modal from opening
     
     // Find the slider and image element
     const slider = arrowElement.closest('.product-image-slider');
-    if (!slider) return;
+    if (!slider) {
+      console.error('❌ Slider not found');
+      return;
+    }
     
     const img = slider.querySelector('.product-img-main');
-    if (!img) return;
+    if (!img) {
+      console.error('❌ Image not found');
+      return;
+    }
     
     const dots = slider.querySelectorAll('.img-dot');
     
     // Get current image index
     let currentIndex = parseInt(img.getAttribute('data-current')) || 1;
+    console.log('📍 Current index:', currentIndex);
     
     // Calculate new index based on direction
     if (direction === 'next') {
@@ -1923,11 +2166,21 @@ class ManjulaMobilesApp {
     } else if (direction === 'prev') {
       currentIndex = currentIndex === 1 ? 2 : 1;
     }
+    console.log('📍 New index:', currentIndex);
     
-    // Get the image URL
-    const newImageUrl = currentIndex === 1 ? img.getAttribute('data-img1') : img.getAttribute('data-img2');
+    // Get the image URLs
+    const img1 = img.getAttribute('data-img1');
+    const img2 = img.getAttribute('data-img2');
+    const newImageUrl = currentIndex === 1 ? img1 : img2;
     
-    if (!newImageUrl) return;
+    console.log('🖼️ Image 1:', img1);
+    console.log('🖼️ Image 2:', img2);
+    console.log('🖼️ Switching to:', newImageUrl);
+    
+    if (!newImageUrl) {
+      console.error('❌ New image URL not found');
+      return;
+    }
     
     // Change image with fade effect
     img.style.opacity = '0';
@@ -1935,6 +2188,7 @@ class ManjulaMobilesApp {
       img.src = newImageUrl;
       img.setAttribute('data-current', currentIndex);
       img.style.opacity = '1';
+      console.log('✅ Image switched successfully');
     }, 150);
     
     // Update dots
@@ -1983,82 +2237,126 @@ class ManjulaMobilesApp {
     });
   }
 
+  // Switch main image when clicking thumbnails (Amazon-style)
+  switchMainImage(productId, imageUrl, index) {
+    console.log('🖼️ Switching main image for product:', productId, 'to index:', index);
+    
+    const mainImg = document.getElementById(`mainImg-${productId}`);
+    if (!mainImg) {
+      console.error('❌ Main image not found');
+      return;
+    }
+    
+    // Find all thumbnails in this product card
+    const card = mainImg.closest('.product-card');
+    if (!card) return;
+    
+    const thumbnails = card.querySelectorAll('.thumbnail-item');
+    
+    // Fade out, change image, fade in
+    mainImg.style.opacity = '0';
+    setTimeout(() => {
+      mainImg.src = imageUrl;
+      mainImg.setAttribute('data-current', index); // Update current index for modal
+      mainImg.style.opacity = '1';
+      console.log('✅ Main image switched to:', imageUrl);
+    }, 150);
+    
+    // Update thumbnail borders
+    thumbnails.forEach((thumb, i) => {
+      if (i + 1 === index) {
+        thumb.style.borderColor = '#dc2626';
+        thumb.style.borderWidth = '2px';
+        thumb.classList.add('active');
+      } else {
+        thumb.style.borderColor = '#e5e7eb';
+        thumb.style.borderWidth = '2px';
+        thumb.classList.remove('active');
+      }
+    });
+  }
+
 
 
   renderProductCard(product) {
     const discountPercent = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     
+    // Get product ID (use _id if id doesn't exist)
+    const productId = product.id || product._id || 'unknown';
+    
     // Check if product has multiple images
     const hasMultipleImages = product.imageUrl && product.imageUrl2 && 
                               product.imageUrl.trim() !== "" && product.imageUrl2.trim() !== "";
     
-    // Priority: imageUrl > default image > emoji
-    let displayContent = "";
-    let modalImageUrl = "";
-    
-    // Debug: Log product data to console
-    console.log('=== Product Card Debug ===');
-    console.log('Product ID:', product.id);
-    console.log('Product Name:', product.name);
-    console.log('ImageURL 1:', product.imageUrl);
-    console.log('ImageURL 1 length:', product.imageUrl ? product.imageUrl.length : 0);
-    console.log('ImageURL 2:', product.imageUrl2);
-    console.log('ImageURL 2 length:', product.imageUrl2 ? product.imageUrl2.length : 0);
-    console.log('Has Multiple Images:', hasMultipleImages);
-    console.log('Image emoji:', product.image);
-    console.log('========================');
+    // Create image gallery HTML
+    let imageGalleryHTML = "";
     
     if (product.imageUrl && product.imageUrl.trim() !== "") {
-      // Use image URL if provided - with image switching if second image exists
       if (hasMultipleImages) {
-        displayContent = `
-          <div class="product-image-slider" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
-            <img src="${product.imageUrl}" alt="${product.name}" class="product-img-main clickable-product-image" data-action="open-gallery-modal" data-image-url="${product.imageUrl}" data-image-url2="${product.imageUrl2}" data-img1="${product.imageUrl}" data-img2="${product.imageUrl2}" data-current="1" style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s ease; display: block; cursor: pointer;" onerror="this.style.display='none';">
+        // Amazon-style layout: Big image on top, thumbnails below
+        imageGalleryHTML = `
+          <div class="product-image-gallery">
+            <!-- Main Big Image -->
+            <div class="main-image-container" style="cursor: pointer;">
+              <img src="${product.imageUrl}" 
+                   alt="${product.name}" 
+                   class="main-product-image" 
+                   id="mainImg-${productId}"
+                   data-action="open-gallery-modal"
+                   data-image-url="${product.imageUrl}"
+                   data-image-url2="${product.imageUrl2}"
+                   data-img1="${product.imageUrl}"
+                   data-img2="${product.imageUrl2}"
+                   data-current="1"
+                   style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s ease; cursor: pointer;">
+            </div>
             
-            <!-- Previous Arrow -->
-            <button class="image-nav-arrow prev-arrow" data-action="switch-image-prev" onclick="event.stopPropagation()" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.7); color: white; border: 2px solid rgba(255,255,255,0.9); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 100; font-size: 18px; font-weight: bold; line-height: 1; padding: 0;">
-              ‹
-            </button>
-            
-            <!-- Next Arrow -->
-            <button class="image-nav-arrow next-arrow" data-action="switch-image-next" onclick="event.stopPropagation()" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.7); color: white; border: 2px solid rgba(255,255,255,0.9); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 100; font-size: 18px; font-weight: bold; line-height: 1; padding: 0;">
-              ›
-            </button>
-            
-            <!-- Dots Indicator -->
-            <div class="image-dots" style="position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 99;">
-              <span class="img-dot active" data-index="1" onclick="event.stopPropagation(); app.switchToImageByDot(this, 1, '${product.imageUrl}', '${product.imageUrl2}', event)" style="width: 8px; height: 8px; border-radius: 50%; background: #dc2626; cursor: pointer; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></span>
-              <span class="img-dot" data-index="2" onclick="event.stopPropagation(); app.switchToImageByDot(this, 2, '${product.imageUrl}', '${product.imageUrl2}', event)" style="width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.6); cursor: pointer; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></span>
+            <!-- Thumbnail Images Below -->
+            <div class="thumbnail-container" style="display: flex; gap: 8px; margin-top: 8px; justify-content: center;">
+              <div class="thumbnail-item active" onclick="app.switchMainImage('${productId}', '${product.imageUrl}', 1)" style="width: 60px; height: 60px; border: 2px solid #dc2626; border-radius: 6px; overflow: hidden; cursor: pointer; transition: all 0.3s ease;">
+                <img src="${product.imageUrl}" alt="Thumbnail 1" style="width: 100%; height: 100%; object-fit: cover;">
+              </div>
+              <div class="thumbnail-item" onclick="app.switchMainImage('${productId}', '${product.imageUrl2}', 2)" style="width: 60px; height: 60px; border: 2px solid #e5e7eb; border-radius: 6px; overflow: hidden; cursor: pointer; transition: all 0.3s ease;">
+                <img src="${product.imageUrl2}" alt="Thumbnail 2" style="width: 100%; height: 100%; object-fit: cover;">
+              </div>
             </div>
           </div>
         `;
       } else {
-        displayContent = `<img src="${product.imageUrl}" alt="${product.name}" class="clickable-product-image" data-action="open-gallery-modal" data-image-url="${product.imageUrl}" data-image-url2="" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; cursor: pointer;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`;
+        // Single image
+        imageGalleryHTML = `
+          <div class="product-image-gallery">
+            <div class="main-image-container" style="cursor: pointer;">
+              <img src="${product.imageUrl}" 
+                   alt="${product.name}" 
+                   class="main-product-image"
+                   data-action="open-gallery-modal"
+                   data-image-url="${product.imageUrl}"
+                   data-image-url2=""
+                   style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;">
+            </div>
+          </div>
+        `;
       }
-      modalImageUrl = product.imageUrl;
     } else if (product.image && product.image.trim() !== "" && product.image !== "📦") {
-      // Use emoji if no URL but emoji is provided (and not default)
-      displayContent = `<span style="font-size: 48px; display: flex; align-items: center; justify-content: center; height: 100%;">${product.image}</span>`;
-      modalImageUrl = "./public/assets/images/1.jpg"; // Default for modal
+      // Use emoji if no URL
+      imageGalleryHTML = `<span style="font-size: 48px; display: flex; align-items: center; justify-content: center; height: 100%;">${product.image}</span>`;
     } else {
       // Use default image
-      displayContent = `<img src="./public/assets/images/1.jpg" alt="${product.name}" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease;">`;
-      modalImageUrl = "./public/assets/images/1.jpg";
+      imageGalleryHTML = `
+        <div class="product-image-gallery">
+          <div class="main-image-container">
+            <img src="./public/assets/images/1.jpg" alt="${product.name}" class="main-product-image" style="width: 100%; height: 100%; object-fit: cover;">
+          </div>
+        </div>
+      `;
     }
     
     return `
       <div class="product-card">
-        <div class="product-image gallery-style-image">
+        <div class="product-image">
           ${product.badge ? `<div class="product-badge">${product.badge}</div>` : ""}
-          ${displayContent}
-          ${displayContent.includes('onerror') ? `<span style="font-size: 48px; display: none; align-items: center; justify-content: center; height: 100%;">${product.image || "📦"}</span>` : ''}
-          ${displayContent.includes('<img') ? `
-          <div class="gallery-image-overlay">
-            <div class="gallery-overlay-content">
-              <h4 style="color: white; font-size: 16px; font-weight: 600; margin-bottom: 4px;">${product.name}</h4>
-              <p style="color: rgba(255,255,255,0.9); font-size: 14px;">Click to view</p>
-            </div>
-          </div>` : ''}
+          ${imageGalleryHTML}
         </div>
         <div class="product-info">
           <div class="product-category">${product.category}</div>
@@ -2076,8 +2374,8 @@ class ManjulaMobilesApp {
           </div>
           <div class="product-stock">${product.inStock ? "In Stock" : "Out of Stock"}</div>
           <div class="product-buttons">
-            <button class="btn btn-primary" data-action="add-to-cart" data-product-id="${product.id}" ${!product.inStock ? "disabled" : ""} style="flex: 1;">Add to Cart</button>
-            <button class="btn btn-secondary" data-action="buy-now" data-product-id="${product.id}" ${!product.inStock ? "disabled" : ""} style="flex: 1;">Buy Now</button>
+            <button class="btn btn-primary" data-action="add-to-cart" data-product-id="${productId}" ${!product.inStock ? "disabled" : ""} style="flex: 1;">Add to Cart</button>
+            <button class="btn btn-secondary" data-action="buy-now" data-product-id="${productId}" ${!product.inStock ? "disabled" : ""} style="flex: 1;">Buy Now</button>
           </div>
         </div>
       </div>
@@ -2720,7 +3018,16 @@ class ManjulaMobilesApp {
                     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
                       <div>
                         <div style="font-weight: 700; margin-bottom: 4px;">Order #${order.id}</div>
-                        <div style="color: #64748b; font-size: 12px; margin-bottom: 4px;">${order.date}</div>
+                        <div style="color: #64748b; font-size: 12px; margin-bottom: 4px;">
+                          📅 ${order.orderDate ? new Date(order.orderDate).toLocaleString('en-IN', { 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric', 
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            hour12: true 
+                          }) : order.date || 'Date not available'}
+                        </div>
                         <div style="color: #fb923c; font-weight: 600;">₹${order.total.toLocaleString()}</div>
                       </div>
                       <span class="status-badge status-${order.status.toLowerCase().replace(/\s+/g, "-")}" style="font-size: 11px; padding: 4px 8px;">${order.status}</span>
@@ -2784,9 +3091,16 @@ class ManjulaMobilesApp {
 
   async deleteOrder(orderId) {
     if (confirm("Are you sure you want to delete this order?")) {
-      this.orders = this.orders.filter(o => o.id !== orderId);
-      await this.deleteOrderFromStorage(orderId);
-      this.renderPage("admin");
+      try {
+        console.log('🚀 Starting delete process for order:', orderId);
+        await this.deleteOrderFromStorage(orderId);
+        console.log('✅ Delete completed, re-rendering page');
+        await this.renderPage("admin");
+        alert('✅ Order deleted successfully!');
+      } catch (error) {
+        console.error('❌ Delete failed with error:', error);
+        alert(`❌ Failed to delete order: ${error.message}\n\nPlease check:\n1. Server is running\n2. Internet connection\n3. Browser console (F12) for details`);
+      }
     }
   }
 
@@ -3482,7 +3796,16 @@ class ManjulaMobilesApp {
               <div style="background: rgba(30, 41, 59, 0.5); border: 2px solid #334155; border-radius: 12px; padding: 20px;">
                 <div style="margin-bottom: 16px;">
                   <div style="font-weight: 700; font-size: 18px; margin-bottom: 4px;">Order #${order.id}</div>
-                  <div style="color: #94a3b8; font-size: 12px;">${order.date}</div>
+                  <div style="color: #94a3b8; font-size: 12px;">
+                    📅 ${order.orderDate ? new Date(order.orderDate).toLocaleString('en-IN', { 
+                      year: 'numeric', 
+                      month: 'short', 
+                      day: 'numeric', 
+                      hour: '2-digit', 
+                      minute: '2-digit',
+                      hour12: true 
+                    }) : order.date || 'Date not available'}
+                  </div>
                 </div>
                 
                 <div style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
@@ -3707,16 +4030,63 @@ class ManjulaMobilesApp {
   }
 
   // Delete order
-  deleteOrder(orderId) {
+  async deleteOrder(orderId) {
     if (confirm('Are you sure you want to delete this order?')) {
-      this.deleteOrderFromStorage(orderId)
-      this.renderPage('admin-orders')
+      try {
+        console.log('🚀 Starting delete process for order:', orderId);
+        await this.deleteOrderFromStorage(orderId);
+        console.log('✅ Delete completed, re-rendering page');
+        await this.renderPage('admin-orders');
+        alert('✅ Order deleted successfully!');
+      } catch (error) {
+        console.error('❌ Delete failed with error:', error);
+        alert(`❌ Failed to delete order: ${error.message}\n\nPlease check:\n1. Server is running\n2. Internet connection\n3. Browser console (F12) for details`);
+      }
     }
   }
 }
 
 // Initialize EmailJS
-emailjs.init('ghzqy_6v1m5f1cxra');
+try {
+  emailjs.init('ghzqy_6v1m5f1cxra');
+  console.log('✅ EmailJS initialized');
+} catch (error) {
+  console.error('❌ EmailJS initialization error:', error);
+}
 
-// Initialize app
-const app = new ManjulaMobilesApp()
+// Initialize app with error handling - wait for DOM to be ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
+
+function initApp() {
+  try {
+    console.log('🚀 Initializing Manjula Mobiles App...');
+    const app = new ManjulaMobilesApp();
+    window.app = app; // Make app globally accessible for debugging
+    console.log('✅ App initialized successfully');
+  } catch (error) {
+    console.error('❌ App initialization error:', error);
+    document.getElementById('app').innerHTML = `
+      <div style="padding: 40px; text-align: center; font-family: Arial, sans-serif;">
+        <h1 style="color: #dc2626; margin-bottom: 20px;">⚠️ Error Loading Application</h1>
+        <p style="color: #666; margin-bottom: 20px;">There was an error initializing the application.</p>
+        <div style="background: #fef2f2; border: 2px solid #fecaca; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 600px; text-align: left;">
+          <strong>Error Details:</strong>
+          <pre style="margin-top: 10px; color: #dc2626; overflow-x: auto;">${error.message}\n\n${error.stack}</pre>
+        </div>
+        <p style="color: #666; margin-top: 20px;">
+          <strong>Possible Solutions:</strong><br>
+          1. Make sure the server is running (node server/server.js)<br>
+          2. Open this page using a local server (not file://)<br>
+          3. Check the browser console for more details (F12)
+        </p>
+        <button onclick="location.reload()" style="margin-top: 20px; padding: 12px 24px; background: #dc2626; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
+          Retry
+        </button>
+      </div>
+    `;
+  }
+}

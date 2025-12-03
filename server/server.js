@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -23,19 +24,33 @@ const io = socketIo(server, {
 app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Increase payload limit for images
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use(express.static('../client'));
 
-// MongoDB Connection
+// Serve static files from client directory
+const clientPath = path.join(__dirname, '../client');
+console.log('📁 Serving static files from:', clientPath);
+app.use(express.static(clientPath));
+
+// MongoDB Connection with optimized settings
 const MONGODB_URI = process.env.MONGO_URI;
 
-mongoose.connect(MONGODB_URI)
-  .then(() => console.log('✅ Connected to MongoDB'))
+mongoose.connect(MONGODB_URI, {
+  maxPoolSize: 20, // Increased for faster concurrent requests
+  minPoolSize: 5,  // More ready connections
+  serverSelectionTimeoutMS: 2000,
+  socketTimeoutMS: 2000,
+  connectTimeoutMS: 2000,
+  family: 4 // Use IPv4, skip trying IPv6
+})
+  .then(() => {
+    console.log('✅ Connected to MongoDB');
+    console.log('📊 Connection pool size: 10');
+  })
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
 // Product Schema
 const productSchema = new mongoose.Schema({
-  name: String,
-  category: String,
+  name: { type: String, index: true },
+  category: { type: String, index: true },
   price: Number,
   originalPrice: Number,
   image: String,
@@ -43,13 +58,21 @@ const productSchema = new mongoose.Schema({
   imageUrl2: String,
   rating: Number,
   reviews: Number,
-  inStock: Boolean,
+  inStock: { type: Boolean, index: true },
   badge: String,
   qrId: String,
   qrPassword: String,
   trackingStatus: String,
   ownerGender: String
-}, { timestamps: true });
+}, { 
+  timestamps: true,
+  // Optimize for read performance
+  autoIndex: true
+});
+
+// Add compound index for common queries
+productSchema.index({ category: 1, inStock: 1 });
+productSchema.index({ createdAt: 1 });
 
 const Product = mongoose.model('Product', productSchema);
 
@@ -125,17 +148,60 @@ io.on('connection', (socket) => {
 
 // Product Routes
 
+// Simple in-memory cache for products
+let productsCache = null;
+let cacheTimestamp = 0;
+const CACHE_DURATION = 60000; // 60 seconds - longer cache for speed
+
 // Get all products
 app.get('/api/products', async (req, res) => {
   try {
-    const products = await Product.find().sort({ createdAt: 1 });
+    const startTime = Date.now();
+    
+    // Check cache first
+    const now = Date.now();
+    if (productsCache && (now - cacheTimestamp) < CACHE_DURATION) {
+      console.log('📦 Serving products from cache (instant)');
+      // Set cache headers for browser caching
+      res.set('Cache-Control', 'public, max-age=60');
+      return res.json(productsCache);
+    }
+
+    console.log('📡 Fetching products from database...');
+    // Use lean() for faster queries (returns plain JS objects)
+    const products = await Product.find()
+      .lean()
+      .select('-__v -updatedAt -createdAt') // Exclude unnecessary fields for speed
+      .limit(100) // Limit results for faster loading
+      .sort({ _id: -1 }); // Sort by _id is faster than createdAt
+    
     // Transform MongoDB _id to id for client compatibility
     const transformedProducts = products.map(p => ({
-      ...p.toObject(),
+      ...p,
       id: p._id.toString()
     }));
+    
+    // Update cache
+    productsCache = transformedProducts;
+    cacheTimestamp = now;
+    
+    const duration = Date.now() - startTime;
+    console.log(`✅ Returning ${transformedProducts.length} products (took ${duration}ms)`);
+    
+    // Set cache headers
+    res.set('Cache-Control', 'public, max-age=60');
     res.json(transformedProducts);
   } catch (error) {
+    console.error('❌ Error fetching products:', error);
+    
+    // If timeout, send specific error
+    if (error.name === 'MongooseError' && error.message.includes('buffering timed out')) {
+      return res.status(504).json({ 
+        error: 'Database query timeout - please try again',
+        timeout: true 
+      });
+    }
+    
     res.status(500).json({ error: error.message });
   }
 });
@@ -149,6 +215,10 @@ app.post('/api/products', async (req, res) => {
       ...product.toObject(),
       id: product._id.toString()
     };
+    
+    // Invalidate cache
+    productsCache = null;
+    
     io.emit('product-added', transformedProduct);
     res.json(transformedProduct);
   } catch (error) {
@@ -176,6 +246,9 @@ app.patch('/api/products/:id', async (req, res) => {
       id: product._id.toString()
     };
 
+    // Invalidate cache
+    productsCache = null;
+
     io.emit('product-updated', transformedProduct);
 
     res.json(transformedProduct);
@@ -191,6 +264,9 @@ app.delete('/api/products/:id', async (req, res) => {
     if (!deletedProduct) {
       return res.status(404).json({ error: "Product not found" });
     }
+
+    // Invalidate cache
+    productsCache = null;
 
     io.emit('product-deleted', { id: req.params.id });
 
@@ -284,10 +360,19 @@ app.put('/api/orders/:orderId', async (req, res) => {
 
 app.delete('/api/orders/:orderId', async (req, res) => {
   try {
-    await Order.findOneAndDelete({ orderId: req.params.orderId });
+    console.log('🗑️ Deleting order:', req.params.orderId);
+    const deletedOrder = await Order.findOneAndDelete({ orderId: req.params.orderId });
+    
+    if (!deletedOrder) {
+      console.log('⚠️ Order not found:', req.params.orderId);
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    console.log('✅ Order deleted successfully:', req.params.orderId);
     io.emit('order-deleted', { orderId: req.params.orderId });
     res.json({ success: true });
   } catch (error) {
+    console.error('❌ Error deleting order:', error);
     res.status(500).json({ error: error.message });
   }
 });
