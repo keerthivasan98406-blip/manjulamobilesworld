@@ -1465,10 +1465,16 @@ class OwnerPortalApp {
     } catch (error) {
       console.error('❌ Error saving product:', error);
       
-      if (error.message.includes('timeout')) {
-        alert(`⚠️ Database connection is slow!\n\nYour product was saved locally and will sync when the connection improves.\n\nError: ${error.message}`);
+      let errorMessage = error.message;
+      
+      if (error.message.includes('timeout') || error.message.includes('timed out')) {
+        alert(`⏰ Database operation timed out!\n\nThis usually means:\n• Slow internet connection\n• Database server is busy\n\nPlease try again in a few moments.`);
+      } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        alert(`🌐 Network connection error!\n\nPlease check:\n• Your internet connection\n• Server is running\n• Try refreshing the page`);
+      } else if (error.message.includes('offline') || error.message.includes('not available')) {
+        alert(`📡 Database is currently offline!\n\nThe server is running but can't connect to the database.\n\nPlease try again later.`);
       } else {
-        alert(`❌ Error: ${error.message}\n\nPlease check your internet connection and try again.`);
+        alert(`❌ Error saving product:\n\n${errorMessage}\n\nPlease check your connection and try again.`);
       }
     } finally {
       // Restore button state

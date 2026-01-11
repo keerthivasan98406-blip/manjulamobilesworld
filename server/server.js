@@ -426,19 +426,48 @@ app.get('/api/products', async (req, res) => {
 // Create a new product
 app.post('/api/products', async (req, res) => {
   try {
+    console.log('📦 [SERVER] Creating new product:', req.body.name);
+    
+    // Check if mongoose is connected
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⚠️ Database not connected, cannot create product');
+      return res.status(503).json({ 
+        error: 'Database not available. Please try again later.',
+        offline: true 
+      });
+    }
+
     const product = new Product(req.body);
-    await product.save();
+    
+    // Add timeout to save operation
+    const savedProduct = await Promise.race([
+      product.save(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Save operation timed out')), 8000)
+      )
+    ]);
+    
     const transformedProduct = {
-      ...product.toObject(),
-      id: product._id.toString()
+      ...savedProduct.toObject(),
+      id: savedProduct._id.toString()
     };
     
     // Invalidate cache
     productsCache = null;
     
+    console.log('✅ [SERVER] Product created successfully:', transformedProduct.id);
     io.emit('product-added', transformedProduct);
     res.json(transformedProduct);
   } catch (error) {
+    console.error('❌ [SERVER] Error creating product:', error.message);
+    
+    if (error.message.includes('timed out') || error.message.includes('buffering timed out')) {
+      return res.status(504).json({ 
+        error: 'Database operation timed out. Please check your connection and try again.',
+        timeout: true 
+      });
+    }
+    
     res.status(500).json({ error: error.message });
   }
 });
@@ -446,11 +475,28 @@ app.post('/api/products', async (req, res) => {
 // Update a product
 app.patch('/api/products/:id', async (req, res) => {
   try {
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      { $set: req.body },   // patch updates only given fields
-      { new: true }
-    );
+    console.log('🔄 [SERVER] Updating product:', req.params.id);
+    
+    // Check if mongoose is connected
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⚠️ Database not connected, cannot update product');
+      return res.status(503).json({ 
+        error: 'Database not available. Please try again later.',
+        offline: true 
+      });
+    }
+
+    // Add timeout to update operation
+    const product = await Promise.race([
+      Product.findByIdAndUpdate(
+        req.params.id,
+        { $set: req.body },
+        { new: true }
+      ),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Update operation timed out')), 8000)
+      )
+    ]);
 
     console.log("product id: ", product._id)
 
@@ -466,10 +512,20 @@ app.patch('/api/products/:id', async (req, res) => {
     // Invalidate cache
     productsCache = null;
 
+    console.log('✅ [SERVER] Product updated successfully:', transformedProduct.id);
     io.emit('product-updated', transformedProduct);
 
     res.json(transformedProduct);
   } catch (error) {
+    console.error('❌ [SERVER] Error updating product:', error.message);
+    
+    if (error.message.includes('timed out') || error.message.includes('buffering timed out')) {
+      return res.status(504).json({ 
+        error: 'Database operation timed out. Please check your connection and try again.',
+        timeout: true 
+      });
+    }
+    
     res.status(500).json({ error: error.message });
   }
 });
@@ -541,7 +597,21 @@ app.delete('/api/tracking/:qrId', async (req, res) => {
 // Order Routes
 app.get('/api/orders', async (req, res) => {
   try {
-    const orders = await Order.find().sort({ orderDate: -1 });
+    console.log('📡 [SERVER] Loading orders from database...');
+    
+    // Check if mongoose is connected
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⚠️ Database not connected, returning empty orders');
+      return res.json([]);
+    }
+    
+    // Add timeout to orders query
+    const orders = await Promise.race([
+      Order.find().sort({ orderDate: -1 }),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Orders query timed out')), 5000)
+      )
+    ]);
     
     console.log('📤 [SERVER] Sending orders to client:', {
       totalOrders: orders.length,
@@ -562,7 +632,13 @@ app.get('/api/orders', async (req, res) => {
     
     res.json(orders);
   } catch (error) {
-    console.error('❌ [SERVER] Error fetching orders:', error);
+    console.error('❌ [SERVER] Error fetching orders:', error.message);
+    
+    if (error.message.includes('timed out')) {
+      console.log('⚠️ [SERVER] Orders query timed out, returning empty array');
+      return res.json([]);
+    }
+    
     res.status(500).json({ error: error.message });
   }
 });
