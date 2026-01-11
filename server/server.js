@@ -123,10 +123,178 @@ const orderSchema = new mongoose.Schema({
   total: Number,
   paymentMethod: String,
   status: { type: String, default: 'Pending' },
-  orderDate: { type: Date, default: Date.now }
-}, { timestamps: true });
+  orderDate: { type: Date, default: Date.now },
+  paymentScreenshot: {
+    imageUrl: String, // URL to the uploaded image (local or cloud)
+    data: String, // Base64 data as backup
+    fileName: String,
+    uploadTime: String
+  }
+}, { 
+  timestamps: true,
+  strict: false // Allow additional fields that might not be in schema
+});
 
 const Order = mongoose.model('Order', orderSchema);
+
+// Image upload to cloud storage - DISABLED (no file saving)
+const uploadImageToCloud = async (base64Data, fileName) => {
+  try {
+    // File saving disabled - screenshots only stored in database as base64
+    console.log('📸 File saving disabled - screenshots stored in database only');
+    return null; // No file URL returned
+    
+    /* File saving functionality disabled
+    const base64Image = base64Data.split(',')[1];
+    console.log('📸 Using local storage for image upload');
+    return await saveImageLocally(base64Data, fileName);
+    */
+  } catch (error) {
+    console.error('❌ Cloud upload disabled');
+    return null;
+  }
+};
+
+// File saving disabled - screenshots only stored in database
+const saveImageLocally = async (base64Data, fileName) => {
+  console.log('📸 File saving disabled - screenshots stored in database only');
+  return null; // No file saving
+  
+  /* File saving functionality disabled
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = path.join(__dirname, 'uploads');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    
+    // Remove the data:image/...;base64, prefix
+    const base64Image = base64Data.split(',')[1];
+    const buffer = Buffer.from(base64Image, 'base64');
+    
+    // Generate unique filename
+    const timestamp = Date.now();
+    const extension = fileName.split('.').pop() || 'png';
+    const uniqueFileName = `screenshot-${timestamp}.${extension}`;
+    const filePath = path.join(uploadsDir, uniqueFileName);
+    
+    // Save file
+    fs.writeFileSync(filePath, buffer);
+    
+    // Return URL path
+    return `/uploads/${uniqueFileName}`;
+  } catch (error) {
+    console.error('❌ Local save failed:', error);
+    throw error;
+  }
+  */
+};
+
+// Serve uploaded images
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// DIRECT TEST - Add this button to test screenshot saving directly
+app.post('/api/direct-test', async (req, res) => {
+  try {
+    console.log('🧪 DIRECT TEST: Creating order with screenshot...');
+    
+    const testOrder = {
+      orderId: 'DIRECT-TEST-' + Date.now(),
+      customer: {
+        name: 'Test User',
+        phone: '1234567890',
+        email: 'test@test.com',
+        address: 'Test Address'
+      },
+      items: [{
+        id: 1,
+        name: 'Test Item',
+        price: 100,
+        quantity: 1
+      }],
+      total: 100,
+      paymentMethod: 'UPI Payment (Screenshot Uploaded)',
+      status: 'Payment Verification Pending',
+      paymentScreenshot: {
+        data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
+        fileName: 'test-screenshot.png',
+        uploadTime: new Date().toISOString()
+      }
+    };
+    
+    console.log('🧪 Test order object:', {
+      orderId: testOrder.orderId,
+      hasScreenshot: !!testOrder.paymentScreenshot,
+      screenshotDataLength: testOrder.paymentScreenshot.data.length
+    });
+    
+    const order = new Order(testOrder);
+    const savedOrder = await order.save();
+    
+    console.log('✅ DIRECT TEST: Order saved successfully:', {
+      orderId: savedOrder.orderId,
+      hasScreenshot: !!savedOrder.paymentScreenshot,
+      screenshotDataLength: savedOrder.paymentScreenshot?.data?.length,
+      allFields: Object.keys(savedOrder.toObject())
+    });
+    
+    res.json({
+      success: true,
+      orderId: savedOrder.orderId,
+      hasScreenshot: !!savedOrder.paymentScreenshot,
+      screenshotDataLength: savedOrder.paymentScreenshot?.data?.length
+    });
+    
+  } catch (error) {
+    console.error('❌ DIRECT TEST FAILED:', error);
+    res.status(500).json({ error: error.message, stack: error.stack });
+  }
+});
+
+// Test endpoint to see what data we receive
+app.post('/api/debug-order', (req, res) => {
+  console.log('🔍 DEBUG: Received request body keys:', Object.keys(req.body));
+  console.log('🔍 DEBUG: Has paymentScreenshot:', !!req.body.paymentScreenshot);
+  console.log('🔍 DEBUG: PaymentScreenshot keys:', req.body.paymentScreenshot ? Object.keys(req.body.paymentScreenshot) : 'none');
+  console.log('🔍 DEBUG: Screenshot data length:', req.body.paymentScreenshot?.data?.length);
+  console.log('🔍 DEBUG: Full request body structure:', JSON.stringify(req.body, null, 2).substring(0, 1000));
+  res.json({ received: true, hasScreenshot: !!req.body.paymentScreenshot });
+});
+
+// Test endpoint to verify schema works with screenshot data
+app.post('/api/test-screenshot', async (req, res) => {
+  try {
+    console.log('🧪 Testing screenshot save capability...');
+    
+    const testOrder = new Order({
+      orderId: 'TEST-' + Date.now(),
+      customer: { name: 'Test User', phone: '1234567890', email: 'test@test.com', address: 'Test Address' },
+      items: [{ id: 1, name: 'Test Item', price: 100, quantity: 1 }],
+      total: 100,
+      paymentMethod: 'Test Payment',
+      status: 'Test',
+      paymentScreenshot: {
+        data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
+        fileName: 'test.png',
+        uploadTime: new Date().toISOString()
+      }
+    });
+    
+    const saved = await testOrder.save();
+    console.log('✅ Test order saved with screenshot:', !!saved.paymentScreenshot);
+    
+    // Clean up test order
+    await Order.deleteOne({ orderId: saved.orderId });
+    
+    res.json({ success: true, hasScreenshot: !!saved.paymentScreenshot });
+  } catch (error) {
+    console.error('❌ Test failed:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Socket.IO connection
 let connectedClients = 0;
@@ -325,19 +493,101 @@ app.delete('/api/tracking/:qrId', async (req, res) => {
 app.get('/api/orders', async (req, res) => {
   try {
     const orders = await Order.find().sort({ orderDate: -1 });
+    
+    console.log('📤 [SERVER] Sending orders to client:', {
+      totalOrders: orders.length,
+      ordersWithScreenshots: orders.filter(o => o.paymentScreenshot?.data).length
+    });
+    
+    // Debug each order's screenshot data
+    orders.forEach((order, index) => {
+      if (order.paymentScreenshot) {
+        console.log(`📋 [SERVER] Order ${index + 1} screenshot:`, {
+          orderId: order.orderId,
+          hasScreenshotData: !!order.paymentScreenshot.data,
+          screenshotDataLength: order.paymentScreenshot.data?.length,
+          fileName: order.paymentScreenshot.fileName
+        });
+      }
+    });
+    
     res.json(orders);
   } catch (error) {
+    console.error('❌ [SERVER] Error fetching orders:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 app.post('/api/orders', async (req, res) => {
   try {
-    const order = new Order(req.body);
-    await order.save();
-    io.emit('order-added', order);
-    console.log('✅ New order saved to database:', order.orderId);
-    res.json(order);
+    console.log('📥 Received order data:', {
+      orderId: req.body.orderId,
+      hasScreenshot: !!req.body.paymentScreenshot,
+      screenshotDataLength: req.body.paymentScreenshot?.data?.length,
+      screenshotDataType: typeof req.body.paymentScreenshot?.data,
+      screenshotDataPreview: req.body.paymentScreenshot?.data?.substring(0, 50),
+      paymentMethod: req.body.paymentMethod,
+      fileName: req.body.paymentScreenshot?.fileName
+    });
+    
+    // Validate screenshot data if present
+    if (req.body.paymentScreenshot && req.body.paymentScreenshot.data) {
+      if (!req.body.paymentScreenshot.data.startsWith('data:image/')) {
+        console.error('❌ Invalid screenshot data format');
+        return res.status(400).json({ error: 'Invalid screenshot data format' });
+      }
+      
+      if (req.body.paymentScreenshot.data.length > 10 * 1024 * 1024) { // 10MB limit
+        console.error('❌ Screenshot data too large:', req.body.paymentScreenshot.data.length);
+        return res.status(400).json({ error: 'Screenshot data too large' });
+      }
+    }
+    
+    // Create order object explicitly
+    const orderData = {
+      orderId: req.body.orderId,
+      customer: req.body.customer,
+      items: req.body.items,
+      total: req.body.total,
+      paymentMethod: req.body.paymentMethod,
+      status: req.body.status || 'Pending',
+      orderDate: req.body.orderDate || new Date()
+    };
+    
+    // Process screenshot data if present - store base64 directly in database only (no file saving)
+    if (req.body.paymentScreenshot && req.body.paymentScreenshot.data) {
+      console.log('📸 Processing screenshot - storing in database only (no file saving)...');
+      
+      orderData.paymentScreenshot = {
+        data: req.body.paymentScreenshot.data, // Store base64 directly in database only
+        fileName: req.body.paymentScreenshot.fileName,
+        uploadTime: req.body.paymentScreenshot.uploadTime
+      };
+      
+      console.log('📸 Screenshot stored in database only:', {
+        hasData: !!orderData.paymentScreenshot.data,
+        fileName: orderData.paymentScreenshot.fileName,
+        dataLength: orderData.paymentScreenshot.data.length,
+        note: 'No file saved to disk'
+      });
+    }
+    
+    const order = new Order(orderData);
+    const savedOrder = await order.save();
+    
+    console.log('✅ Order saved to MongoDB:', {
+      orderId: savedOrder.orderId,
+      hasScreenshot: !!savedOrder.paymentScreenshot,
+      hasImageUrl: !!savedOrder.paymentScreenshot?.imageUrl,
+      screenshotDataLength: savedOrder.paymentScreenshot?.data?.length,
+      screenshotSavedCorrectly: savedOrder.paymentScreenshot?.data?.startsWith('data:image/'),
+      allFields: Object.keys(savedOrder.toObject())
+    });
+    
+    io.emit('order-added', savedOrder);
+    console.log('📡 Order broadcasted via socket');
+    
+    res.json(savedOrder);
   } catch (error) {
     console.error('❌ Error saving order:', error);
     res.status(500).json({ error: error.message });
@@ -373,6 +623,36 @@ app.delete('/api/orders/:orderId', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('❌ Error deleting order:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Test endpoint to process screenshot without saving to file
+app.post('/api/test-image-upload', async (req, res) => {
+  try {
+    const { imageData, fileName } = req.body;
+    
+    if (!imageData || !fileName) {
+      return res.status(400).json({ error: 'Missing imageData or fileName' });
+    }
+    
+    console.log('🧪 Testing image processing (no file saving):', {
+      fileName: fileName,
+      dataLength: imageData.length,
+      isValidFormat: imageData.startsWith('data:image/')
+    });
+    
+    // Process image data without saving to file
+    console.log('✅ Image processed successfully (stored in memory only)');
+    
+    res.json({
+      success: true,
+      originalFileName: fileName,
+      dataLength: imageData.length,
+      message: 'Image processed successfully - no file saved to disk'
+    });
+  } catch (error) {
+    console.error('❌ Test image processing failed:', error);
     res.status(500).json({ error: error.message });
   }
 });

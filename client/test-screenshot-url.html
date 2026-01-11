@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Screenshot URL Construction</title>
+</head>
+<body>
+    <h1>Testing Screenshot URL Construction</h1>
+    
+    <div id="results"></div>
+    
+    <script>
+        // Simulate the order data from the database
+        const order = {
+            orderId: "JPS0DWQGE",
+            paymentScreenshot: {
+                imageUrl: "/uploads/screenshot-1767453183332.png",
+                data: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+                fileName: "Screenshot 2026-01-02 204435.png"
+            }
+        };
+        
+        // Test the URL construction logic from owner-script.js
+        const imageSrc = order.paymentScreenshot.imageUrl 
+            ? window.location.origin + order.paymentScreenshot.imageUrl 
+            : order.paymentScreenshot.data;
+        
+        console.log('Base URL:', window.location.origin);
+        console.log('Image URL from DB:', order.paymentScreenshot.imageUrl);
+        console.log('Constructed URL:', imageSrc);
+        
+        // Create the image element to test loading
+        const img = document.createElement('img');
+        img.src = imageSrc;
+        img.style.maxWidth = '300px';
+        img.style.border = '2px solid #ccc';
+        img.alt = 'Payment Screenshot';
+        
+        img.onload = () => {
+            console.log('✅ Image loaded successfully');
+            document.getElementById('results').innerHTML += '<p style="color: green;">✅ Image loaded successfully</p>';
+        };
+        
+        img.onerror = () => {
+            console.error('❌ Image failed to load');
+            document.getElementById('results').innerHTML += '<p style="color: red;">❌ Image failed to load</p>';
+        };
+        
+        // Display results
+        document.getElementById('results').innerHTML = `
+            <h2>URL Construction Test</h2>
+            <p><strong>Base URL:</strong> ${window.location.origin}</p>
+            <p><strong>Image URL from DB:</strong> ${order.paymentScreenshot.imageUrl}</p>
+            <p><strong>Constructed URL:</strong> ${imageSrc}</p>
+            <h2>Image Test</h2>
+            <div>${img.outerHTML}</div>
+        `;
+        
+        document.getElementById('results').appendChild(img);
+    </script>
+</body>
+</html>

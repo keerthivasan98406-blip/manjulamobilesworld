@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Owner Portal Screenshots</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .order-card { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .screenshot-img { max-width: 200px; max-height: 150px; border: 2px solid #10b981; border-radius: 8px; }
+        .status { color: #10b981; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Testing Owner Portal Screenshot Display</h1>
+    <p>This page tests the simplified screenshot display method (same as product images)</p>
+    
+    <div id="orders-container">
+        <p>Loading orders...</p>
+    </div>
+    
+    <script>
+        async function loadAndDisplayOrders() {
+            try {
+                const response = await fetch('/api/orders');
+                const orders = await response.json();
+                
+                console.log('📋 Loaded orders:', orders.length);
+                
+                const container = document.getElementById('orders-container');
+                container.innerHTML = '';
+                
+                orders.forEach((order, index) => {
+                    const hasScreenshot = order.paymentScreenshot && order.paymentScreenshot.data;
+                    
+                    console.log(`📋 Order ${index + 1}:`, {
+                        orderId: order.orderId,
+                        hasScreenshot: hasScreenshot,
+                        screenshotDataLength: order.paymentScreenshot?.data?.length,
+                        paymentMethod: order.paymentMethod
+                    });
+                    
+                    const orderCard = document.createElement('div');
+                    orderCard.className = 'order-card';
+                    orderCard.innerHTML = `
+                        <h3>Order #${order.orderId}</h3>
+                        <p><strong>Customer:</strong> ${order.customer.name}</p>
+                        <p><strong>Total:</strong> ₹${order.total}</p>
+                        <p><strong>Payment Method:</strong> ${order.paymentMethod}</p>
+                        <p class="status"><strong>Status:</strong> ${order.status}</p>
+                        
+                        ${hasScreenshot ? `
+                            <div style="margin-top: 15px; padding: 10px; background: #f0fdf4; border-radius: 6px;">
+                                <p><strong>Payment Screenshot:</strong></p>
+                                <img src="${order.paymentScreenshot.data}" alt="Payment Screenshot" class="screenshot-img">
+                                <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                                    📎 ${order.paymentScreenshot.fileName} • 
+                                    ${new Date(order.paymentScreenshot.uploadTime).toLocaleString()}
+                                    <span style="color: #10b981;">• 📄 Image Data</span>
+                                </p>
+                            </div>
+                        ` : order.paymentMethod.includes('Screenshot') ? `
+                            <div style="margin-top: 15px; padding: 10px; background: #fef2f2; border-radius: 6px;">
+                                <p style="color: #dc2626;"><strong>⚠️ Screenshot data missing</strong></p>
+                                <p style="font-size: 12px; color: #dc2626;">Payment screenshot was uploaded but data is not available</p>
+                            </div>
+                        ` : ''}
+                    `;
+                    
+                    container.appendChild(orderCard);
+                });
+                
+                if (orders.length === 0) {
+                    container.innerHTML = '<p>No orders found</p>';
+                }
+                
+            } catch (error) {
+                console.error('❌ Error loading orders:', error);
+                document.getElementById('orders-container').innerHTML = '<p style="color: red;">Error loading orders</p>';
+            }
+        }
+        
+        // Load orders when page loads
+        loadAndDisplayOrders();
+        
+        // Add click handler for screenshot modal
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('screenshot-img')) {
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                    background: rgba(0,0,0,0.8); display: flex; align-items: center;
+                    justify-content: center; z-index: 10000; padding: 20px;
+                `;
+                
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 12px; padding: 24px; max-width: 600px; width: 100%; text-align: center;">
+                        <h3 style="margin-bottom: 16px; color: #000;">Payment Screenshot</h3>
+                        <img src="${e.target.src}" alt="Payment Screenshot" style="max-width: 100%; max-height: 400px; border-radius: 8px; margin-bottom: 16px; border: 2px solid #fecaca;">
+                        <button onclick="this.closest('div').parentElement.remove()" style="background: #dc2626; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 600;">Close</button>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                modal.onclick = (e) => {
+                    if (e.target === modal) {
+                        modal.remove();
+                    }
+                };
+            }
+        });
+    </script>
+</body>
+</html>

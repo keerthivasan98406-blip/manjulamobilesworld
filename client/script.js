@@ -17,14 +17,19 @@ class ManjulaMobilesApp {
     this.API_URL = `${baseURL}/api`
     
     // Socket.IO connection for real-time updates with reconnection
-    this.socket = io(baseURL, {
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: 10
-    })
-    this.setupSocketListeners()
+    if (typeof io !== 'undefined') {
+      this.socket = io(baseURL, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: 10
+      })
+      this.setupSocketListeners()
+    } else {
+      console.warn('⚠️ Socket.IO not loaded, real-time updates disabled');
+      this.socket = null;
+    }
     
     // Carousel properties
     this.carouselImages = [
@@ -50,8 +55,20 @@ class ManjulaMobilesApp {
     }, 5000); // 5 seconds
   }
 
+  // Calculate years of experience dynamically based on business start year
+  getYearsOfExperience() {
+    const businessStartYear = 2017; // Manjula Mobiles started in 2017
+    const currentYear = new Date().getFullYear();
+    return currentYear - businessStartYear;
+  }
+
   // Socket.IO Real-time Listeners
   setupSocketListeners() {
+    if (!this.socket) {
+      console.warn('⚠️ No socket connection, skipping listeners');
+      return;
+    }
+    
     this.socket.on('connect', () => {
       console.log('✅ Connected to server for real-time updates');
       console.log('Socket ID:', this.socket.id);
@@ -318,26 +335,81 @@ class ManjulaMobilesApp {
 
   async saveSingleOrder(order) {
     try {
+      console.log('📡 Sending order to server:', {
+        orderId: order.id,
+        hasScreenshot: !!order.paymentScreenshot,
+        screenshotDataLength: order.paymentScreenshot?.data?.length,
+        paymentMethod: order.paymentMethod,
+        screenshotDataPreview: order.paymentScreenshot?.data?.substring(0, 100)
+      });
+      
+      // Create the request body explicitly
+      const requestBody = {
+        orderId: order.id,
+        customer: order.customer,
+        items: order.items,
+        total: order.total,
+        paymentMethod: order.paymentMethod,
+        status: order.status || 'Pending',
+        orderDate: order.date || new Date().toISOString()
+      };
+      
+      // Add screenshot data if it exists
+      if (order.paymentScreenshot && order.paymentScreenshot.data) {
+        requestBody.paymentScreenshot = {
+          data: order.paymentScreenshot.data,
+          fileName: order.paymentScreenshot.fileName,
+          uploadTime: order.paymentScreenshot.uploadTime
+        };
+        console.log('📸 Adding screenshot to request:', {
+          hasData: !!requestBody.paymentScreenshot.data,
+          dataLength: requestBody.paymentScreenshot.data.length,
+          fileName: requestBody.paymentScreenshot.fileName
+        });
+      } else {
+        console.log('⚠️ No screenshot data found in order object');
+      }
+      
+      console.log('📤 Final request body structure:', {
+        orderId: requestBody.orderId,
+        hasCustomer: !!requestBody.customer,
+        hasItems: !!requestBody.items,
+        hasScreenshot: !!requestBody.paymentScreenshot,
+        allKeys: Object.keys(requestBody)
+      });
+      
+      // DEBUG: Send to debug endpoint first to see what server receives
+      try {
+        const debugResponse = await fetch(`${this.API_URL}/debug-order`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody)
+        });
+        const debugResult = await debugResponse.json();
+        console.log('🔍 DEBUG endpoint response:', debugResult);
+      } catch (debugError) {
+        console.log('⚠️ Debug endpoint failed:', debugError);
+      }
+      
       // Save to database via API
       const response = await fetch(`${this.API_URL}/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: order.id,
-          customer: order.customer,
-          items: order.items,
-          total: order.total,
-          paymentMethod: order.paymentMethod,
-          status: order.status || 'Pending'
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save order to database');
+        const errorText = await response.text();
+        console.error('❌ Server response error:', errorText);
+        throw new Error(`Failed to save order to database: ${errorText}`);
       }
 
       const savedOrder = await response.json();
-      console.log('✅ Order saved to database:', savedOrder);
+      console.log('✅ Order saved to database:', {
+        orderId: savedOrder.orderId,
+        hasScreenshot: !!savedOrder.paymentScreenshot,
+        screenshotDataLength: savedOrder.paymentScreenshot?.data?.length
+      });
       
       // Add to local array
       this.orders.push(savedOrder);
@@ -492,8 +564,7 @@ class ManjulaMobilesApp {
               <div class="loading-progress">
                 <div class="progress-bar"></div>
               </div>
-              <p class="loading-status">Loading products from database...</p>
-              <p class="loading-time">⏱️ Maximum wait: 7 seconds</p>
+                            <p class="loading-time">⏱️ Maximum wait: 7 seconds</p>
             </div>
           </div>
         </div>
@@ -595,8 +666,8 @@ class ManjulaMobilesApp {
       if (actionElement && actionElement.dataset.action === "whatsapp-order") {
         this.whatsappOrder()
       }
-      if (actionElement && actionElement.dataset.action === "finalize-upi-payment") {
-        this.finalizeOrder("UPI Payment")
+      if (actionElement && actionElement.dataset.action === "upload-screenshot") {
+        this.handleScreenshotUpload()
       }
       
       // Mobile menu
@@ -1350,28 +1421,7 @@ class ManjulaMobilesApp {
     }
   }
 
-  // Method to show order confirmation
-  showOrderConfirmation() {
-    const notification = document.createElement('div')
-    notification.className = 'order-notification'
-    notification.innerHTML = `
-        <div class="notification-content">
-            <div class="notification-icon">✅</div>
-            <div class="notification-text">
-                <strong>Order Details Sent!</strong>
-                <p>Proceeding to payment...</p>
-            </div>
-        </div>
-    `
-    document.body.appendChild(notification)
-    
-    // Remove notification after 3 seconds
-    setTimeout(() => {
-        notification.remove()
-    }, 3000)
-  }
-
-  // UPDATED: proceedToPayment method with order saving
+  // UPDATED: proceedToPayment method - store order data but don't save yet
   proceedToPayment() {
     const fullName = document.getElementById("fullName").value
     const email = document.getElementById("email").value
@@ -1385,10 +1435,10 @@ class ManjulaMobilesApp {
         return
     }
 
-    // Create order object
+    // Store order data temporarily (don't save to database yet)
     const cartTotal = this.cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
     const orderId = Date.now()
-    const newOrder = {
+    this.pendingOrder = {
       id: orderId,
       date: new Date().toLocaleString('en-IN', {
         day: '2-digit',
@@ -1412,18 +1462,9 @@ class ManjulaMobilesApp {
       status: 'Pending Payment',
       paymentMethod: 'Pending'
     }
-
-    // Save order to memory
-    this.saveSingleOrder(newOrder)
-    this.currentOrderId = orderId
     
-    // Show success notification
-    this.showOrderConfirmation()
-    
-    // Proceed to UPI payment
-    setTimeout(() => {
-        this.renderPage("upi-payment")
-    }, 1000)
+    // Redirect to payment page (order not saved yet)
+    this.renderPage("payment")
   }
 
   async renderPage(page) {
@@ -1461,8 +1502,8 @@ class ManjulaMobilesApp {
       html += this.renderJoinWithUs()
     } else if (page === "help-desk") {
       html += this.renderHelpDesk()
-    } else if (page === "upi-payment") {
-      html += this.renderUPIPaymentPage()
+    } else if (page === "payment") {
+      html += this.renderPaymentPage()
     }
 
     html += this.renderFooter()
@@ -1481,9 +1522,11 @@ class ManjulaMobilesApp {
       this.stopCarousel();
     }
 
-    // Generate QR code for UPI payment page
-    if (page === "upi-payment") {
-      this.generateUPIQRCode();
+    // Generate QR code for payment page
+    if (page === "payment") {
+      setTimeout(() => {
+        this.generatePaymentQRCode(this.cart.reduce((sum, item) => sum + item.price * item.quantity, 0));
+      }, 100);
     }
   }
 
@@ -1515,7 +1558,7 @@ class ManjulaMobilesApp {
               <img src="https://i.pinimg.com/736x/e3/6f/79/e36f793e016dd6b35cd27f84030b7487.jpg" alt="Manjula Mobiles Logo" style="width: 50px; height: 50px; object-fit: contain; border-radius: 8px;" onerror="this.innerHTML='<div style=&quot;width:50px;height:50px;background:linear-gradient(135deg,#dc2626,#b91c1c);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px;&quot;>📱</div>'">
             </div>
             <div class="nav-title" data-page="home">
-              <div style="font-size: 16px; font-weight: 700; white-space: nowrap;">MANJULA MOBILS WORLD</div>
+              <div style="font-size: 16px; font-weight: 700; white-space: nowrap;">MANJULA MOBIL WORLD</div>
               <div style="font-size: 10px; font-weight: 500; margin-top: 1px;">the final world of mobile services</div>
             </div>
           </div>
@@ -1805,7 +1848,7 @@ class ManjulaMobilesApp {
       },
       { 
         name: "poco", 
-        image: "https://i.pinimg.com/736x/eb/84/ad/eb84adee45af874bf7d33cb804c08d9c.jpg"
+        image: "https://i.pinimg.com/1200x/37/ee/19/37ee197558a970e5e916cdd8de79f55e.jpg"
       },
      
       { 
@@ -1814,7 +1857,7 @@ class ManjulaMobilesApp {
       },
       { 
         name: "iqoo", 
-        image: "https://i.pinimg.com/736x/d3/0a/67/d30a674c6039565b93944ae49d9424ff.jpg"
+        image: "https://i.pinimg.com/1200x/c8/55/03/c85503ffac45d4b8b14ba397f4b44ce9.jpg"
       },
 
       { 
@@ -1870,8 +1913,8 @@ class ManjulaMobilesApp {
               <div class="stat-label">Express Service</div>
             </div>
             <div class="stat-item">
-              <div class="stat-number">8+</div>
-              <div class="stat-label">Expert Technicians</div>
+              <div class="stat-number">${this.getYearsOfExperience()}+</div>
+              <div class="stat-label">years experience</div>
             </div>
           </div>
         </div>
@@ -1902,15 +1945,6 @@ class ManjulaMobilesApp {
               oninput="app.handleProductSearch()"
             >
             <button class="btn btn-secondary" style="white-space: nowrap; padding: 10px 12px; font-size: 12px;" onclick="document.getElementById('productSearch').value = ''; app.handleProductSearch()">Clear</button>
-            <button id="refreshBtn" class="btn btn-primary" onclick="app.manualRefresh()" style="white-space: nowrap; padding: 10px 16px; font-size: 12px;">
-              🔄 Refresh
-            </button>
-            <button class="btn btn-secondary" onclick="app.loadProductsFromDatabase()" style="white-space: nowrap; padding: 10px 16px; font-size: 12px; background: #10b981; color: white; border: 1px solid #10b981;">
-              📡 Sync Now
-            </button>
-          </div>
-          <div style="margin-top: 8px; text-align: right;">
-            <span style="color: #64748b; font-size: 11px;">Auto-updates every 5 seconds | Click "📡 Sync Now" for immediate sync</span>
           </div>
         </div>
         <div style="display: flex; position: relative; overflow-x: hidden;">
@@ -2640,15 +2674,9 @@ class ManjulaMobilesApp {
             <div class="payment-details">${cartItems} items</div>
           </div>
           <div class="payment-methods">
-            <!-- UPI Payment -->
-            <button class="payment-method" data-page="upi-payment" data-method="UPI Payment">
-              <span class="payment-icon">📱</span>
-              <span class="payment-name">UPI Payment</span>
-              <span class="payment-arrow">→</span>
-            </button>
             <!-- Cash on Delivery -->
             <button class="payment-method" data-action="pay" data-method="Cash on Delivery">
-              <span class="payment-icon">💵</span>
+              <span class="payment-icon">�<//span>
               <span class="payment-name">Cash on Delivery</span>
               <span class="payment-arrow">→</span>
             </button>
@@ -2659,81 +2687,96 @@ class ManjulaMobilesApp {
     `
   }
 
-  renderUPIPaymentPage() {
+  renderPaymentPage() {
     const cartTotal = this.cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const upiPaymentUrl = `upi://pay?pa=${this.upiLink}&pn=ManjulaMobiles&am=${cartTotal}&cu=INR&tr=ORDER${Date.now()}&tn=Payment for Manjula Mobiles Order`;
+    const cartItems = this.cart.reduce((total, item) => total + item.quantity, 0);
     
-    const orderDetails = this.cart.map(item => 
-      `<div class="order-item-line">
-         <span>${item.name} x ${item.quantity}</span>
-         <span>₹${(item.price * item.quantity).toLocaleString()}</span>
-       </div>`
+    const orderItems = this.cart.map(item => 
+      `<div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+        <span>${item.name} x ${item.quantity}</span>
+        <span>₹${(item.price * item.quantity).toLocaleString()}</span>
+      </div>`
     ).join('');
 
     return `
-      <div class="upi-payment-page" style="min-height: 100vh; background-color: #ffffff; padding-top: 96px; padding-bottom: 80px;">
-        <div class="container" style="max-width: 800px; margin: 0 auto;">
-          <button class="back-button" data-page="checkout" style="margin-bottom: 24px;">← Back to Checkout</button>
+      <div style="min-height: 100vh; background: linear-gradient(135deg, #fef2f2 0%, #ffffff 50%, #fef2f2 100%); padding-top: 96px; padding-bottom: 80px;">
+        <div class="container" style="max-width: 800px;">
+          <button class="back-button" data-page="checkout" style="margin-bottom: 24px; background: #6b7280; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: 600;">← Back to Checkout</button>
           
-          <div class="upi-payment-header" style="text-align: center; margin-bottom: 40px;">
-            <h1 style="font-size: 36px; font-weight: 700; margin-bottom: 8px;">UPI Payment</h1>
-            <p style="font-size: 18px; color: #666;">Total Amount: <strong style="color: #dc2626; font-size: 24px;">₹${cartTotal.toLocaleString()}</strong></p>
-          </div>
-
-          <div class="upi-payment-content" style="text-align: center;">
-            <!-- Pay Now Button - Opens UPI App Automatically -->
-            <div style="margin-bottom: 32px;">
-              <a href="${upiPaymentUrl}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 16px 32px; font-size: 18px; text-decoration: none;">
-                <span>📱</span>
-                <span>Pay ₹${cartTotal.toLocaleString()} Now</span>
-              </a>
-              <p style="color: #666; margin-top: 12px; font-size: 14px;">Click to open your UPI payment app</p>
-            </div>
-
-            <!-- OR Divider -->
-            <div style="display: flex; align-items: center; gap: 16px; margin: 32px 0;">
-              <div style="flex: 1; height: 1px; background-color: #e5e7eb;"></div>
-              <span style="color: #666; font-weight: 600;">OR</span>
-              <div style="flex: 1; height: 1px; background-color: #e5e7eb;"></div>
-            </div>
-
-            <!-- QR Code Section - Centered -->
-            <div class="qr-code-section" style="margin-bottom: 32px;">
-              <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 16px;">Scan QR Code</h3>
-              <div class="qr-code-container" style="display: flex; justify-content: center; margin-bottom: 16px;">
-                <div id="qrCode" class="qr-code" style="padding: 20px; background: white; border: 2px solid #fecaca; border-radius: 12px; display: inline-block;"></div>
-              </div>
-              <div class="qr-instructions" style="max-width: 400px; margin: 0 auto; text-align: left;">
-                <h4 style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">How to Pay:</h4>
-                <ol style="padding-left: 20px; color: #666; line-height: 1.8;">
-                  <li>Open any UPI app (Google Pay, PhonePe, Paytm, etc.)</li>
-                  <li>Scan the QR code above</li>
-                  <li>Verify amount: <strong>₹${cartTotal.toLocaleString()}</strong></li>
-                  <li>Complete the payment</li>
-                </ol>
-              </div>
-            </div>
-
+          <div style="background: white; border-radius: 16px; padding: 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 2px solid #fecaca;">
+            <h1 style="font-size: 36px; font-weight: 700; margin-bottom: 32px; text-align: center; color: #000;">💳 Payment Options</h1>
+            
             <!-- Order Summary -->
-            <div class="order-summary-section" style="background-color: #fef2f2; border: 2px solid #fecaca; border-radius: 12px; padding: 24px; margin-bottom: 24px; text-align: left;">
-              <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; text-align: center;">Order Summary</h3>
-              <div class="order-items" style="margin-bottom: 16px;">
-                ${orderDetails}
-              </div>
-              <div class="order-total" style="display: flex; justify-content: space-between; padding-top: 16px; border-top: 2px solid #fecaca; font-size: 18px; font-weight: 700;">
+            <div style="background: #f9fafb; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
+              <h3 style="color: #000; margin-bottom: 16px; font-size: 20px; text-align: center;">Order Summary</h3>
+              ${orderItems}
+              <div style="display: flex; justify-content: space-between; padding: 16px 0; border-top: 2px solid #dc2626; margin-top: 16px; font-weight: bold; color: #000; font-size: 20px;">
                 <span>Total Amount:</span>
                 <span style="color: #dc2626;">₹${cartTotal.toLocaleString()}</span>
               </div>
+              <p style="text-align: center; color: #666; font-size: 14px; margin-top: 8px;">${cartItems} items</p>
             </div>
-              
-            <div class="payment-actions" style="display: flex; gap: 12px; justify-content: center; margin-bottom: 24px;">
-              <button class="btn btn-secondary" data-page="checkout">Cancel Payment</button>
+            
+            <!-- QR Code Section -->
+            <div style="text-align: center; margin-bottom: 32px; padding: 24px; background: #fef2f2; border-radius: 12px; border: 2px solid #dc2626;">
+              <h3 style="color: #dc2626; margin-bottom: 16px; font-size: 20px;">📱 Scan QR Code to Pay</h3>
+              <div id="paymentQrCode" style="display: flex; justify-content: center; margin-bottom: 16px;"></div>
+              <p style="color: #666; font-size: 16px; font-weight: 600;">Amount: ₹${cartTotal.toLocaleString()}</p>
+              <p style="color: #666; font-size: 14px; margin-top: 8px;">UPI ID: +91 82484 54841</p>
             </div>
-
-            <div class="payment-help" style="background-color: #f3f4f6; border-radius: 8px; padding: 16px; text-align: center;">
-              <p style="font-weight: 600; margin-bottom: 8px;">Need help?</p>
-              <p style="color: #666; margin-bottom: 12px; font-size: 14px;">If you face any issues with the payment, contact us:</p>
-              <a href="https://wa.me/918248454841" target="_blank" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none;">
+            
+            <!-- Direct Payment App Links -->
+            <div style="margin-bottom: 32px;">
+              <h3 style="color: #000; margin-bottom: 16px; font-size: 18px; text-align: center;">Pay Directly via Apps:</h3>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px;">
+                <button onclick="app.openPaymentApp('gpay', ${cartTotal})" style="background: white; color: #333; border: 2px solid #e5e7eb; padding: 20px; border-radius: 12px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; font-weight: 600; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.15)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.1)'; this.style.transform='translateY(0)'">
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Google_Pay_%28GPay%29_Logo.svg" alt="Google Pay" style="width: 24px; height: 24px;" onerror="this.src='https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v9/icons/googlepay.svg'">
+                  <span>Google Pay</span>
+                </button>
+                <button onclick="app.openPaymentApp('phonepe', ${cartTotal})" style="background: white; color: #333; border: 2px solid #e5e7eb; padding: 20px; border-radius: 12px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; font-weight: 600; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.15)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.1)'; this.style.transform='translateY(0)'">
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/PhonePe_logo.svg" alt="PhonePe" style="width: 24px; height: 24px;" onerror="this.src='https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v9/icons/phonepe.svg'">
+                  <span>PhonePe</span>
+                </button>
+                <button onclick="app.openPaymentApp('paytm', ${cartTotal})" style="background: white; color: #333; border: 2px solid #e5e7eb; padding: 20px; border-radius: 12px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; font-weight: 600; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.15)'; this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.1)'; this.style.transform='translateY(0)'">
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/2/24/Paytm_Logo_%28standalone%29.svg" alt="Paytm" style="width: 24px; height: 24px;" onerror="this.src='https://cdn.jsdelivr.net/gh/simple-icons/simple-icons@v9/icons/paytm.svg'">
+                  <span>Paytm</span>
+                </button>
+              </div>
+            </div>
+            
+            <!-- Payment Instructions -->
+            <div style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 12px; padding: 20px; margin-bottom: 32px;">
+              <h4 style="color: #92400e; font-size: 16px; margin-bottom: 12px; font-weight: 700;">📋 Payment Instructions:</h4>
+              <ul style="color: #92400e; font-size: 14px; margin: 0; padding-left: 20px; line-height: 1.6;">
+                <li>Pay ₹${cartTotal.toLocaleString()} to: <strong>+91 82484 54841</strong></li>
+                <li>Use any UPI app or scan the QR code above</li>
+                <li>Take a screenshot of the payment confirmation</li>
+                <li>Upload the screenshot below to complete your order</li>
+              </ul>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div id="actionButtons" style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+              <button class="btn btn-primary" data-action="upload-screenshot" style="background: #10b981; border-color: #10b981; padding: 16px 32px; font-size: 16px; font-weight: 700;">
+                📷 Upload Payment Screenshot
+              </button>
+            </div>
+            
+            <!-- Hidden Confirm Order Button (will show after screenshot upload) -->
+            <div id="confirmOrderSection" style="display: none; text-align: center; margin-top: 32px;">
+              <div id="uploadedScreenshotPreview" style="background: #f0fdf4; border: 2px solid #10b981; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                <!-- Screenshot preview will be inserted here -->
+              </div>
+              <button id="confirmOrderBtn" class="btn btn-primary" style="background: #dc2626; border-color: #dc2626; padding: 20px 40px; font-size: 18px; font-weight: 700;">
+                ✅ Confirm Order
+              </button>
+            </div>
+            
+            <!-- Help Section -->
+            <div style="background: #f3f4f6; border-radius: 12px; padding: 20px; margin-top: 32px; text-align: center;">
+              <p style="font-weight: 600; margin-bottom: 8px; color: #000;">Need help?</p>
+              <p style="color: #666; margin-bottom: 16px; font-size: 14px;">If you face any issues with the payment, contact us:</p>
+              <a href="https://wa.me/918248454841" target="_blank" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 12px 24px;">
                 📱 Chat on WhatsApp
               </a>
             </div>
@@ -2741,24 +2784,6 @@ class ManjulaMobilesApp {
         </div>
       </div>
     `;
-  }
-
-  generateUPIQRCode() {
-    const cartTotal = this.cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const upiPaymentUrl = `upi://pay?pa=${this.upiLink}&pn=ManjulaMobiles&am=${cartTotal}&tr=ORDER-${Date.now()}&tn=Payment%20for%20Manjula%20Mobiles%20Order`;
-    
-    const qrContainer = document.getElementById('qrCode');
-    if (qrContainer) {
-      qrContainer.innerHTML = '';
-      new QRCode(qrContainer, {
-        text: upiPaymentUrl,
-        width: 250,
-        height: 250,
-        colorDark: "#000000",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.H
-      });
-    }
   }
 
   whatsappOrder() {
@@ -2870,6 +2895,420 @@ class ManjulaMobilesApp {
     }
   }
 
+  // Handle screenshot upload for payment proof
+  handleScreenshotUpload() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          alert('Please select an image file');
+          return;
+        }
+        
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          alert('File size should be less than 5MB');
+          return;
+        }
+        
+        // Create preview and show confirmation
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const imageData = e.target.result;
+          console.log('📸 File read successfully:', {
+            fileName: file.name,
+            fileSize: file.size,
+            fileType: file.type,
+            dataLength: imageData.length,
+            dataPreview: imageData.substring(0, 50),
+            isValidFormat: imageData.startsWith('data:image/')
+          });
+          this.showScreenshotPreview(imageData, file.name);
+        };
+        reader.onerror = (e) => {
+          console.error('❌ Error reading file:', e);
+          alert('Error reading the image file. Please try again.');
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    
+    document.body.appendChild(input);
+    input.click();
+    document.body.removeChild(input);
+  }
+
+  showScreenshotPreview(imageSrc, fileName) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      padding: 20px;
+      box-sizing: border-box;
+    `;
+    
+    modal.innerHTML = `
+      <div style="background: white; border-radius: 12px; padding: 24px; max-width: 500px; width: 100%; text-align: center;">
+        <h3 style="margin-bottom: 16px; color: #000;">Payment Screenshot Preview</h3>
+        <img src="${imageSrc}" alt="Payment Screenshot" style="max-width: 100%; max-height: 300px; border-radius: 8px; margin-bottom: 16px; border: 2px solid #fecaca;">
+        <p style="color: #666; font-size: 14px; margin-bottom: 20px;">File: ${fileName}</p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+          <button id="confirmScreenshot" style="background: #10b981; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 600;">✅ Use This Screenshot</button>
+          <button id="cancelUpload" style="background: #6b7280; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 600;">Cancel</button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Handle confirm screenshot button
+    document.getElementById('confirmScreenshot').onclick = () => {
+      document.body.removeChild(modal);
+      this.showConfirmOrderButton(imageSrc, fileName);
+    };
+    
+    // Handle cancel button
+    document.getElementById('cancelUpload').onclick = () => {
+      document.body.removeChild(modal);
+    };
+    
+    // Close on background click
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        document.body.removeChild(modal);
+      }
+    };
+  }
+
+  showConfirmOrderButton(imageSrc, fileName) {
+    // Hide the action buttons
+    const actionButtons = document.getElementById('actionButtons');
+    if (actionButtons) {
+      actionButtons.style.display = 'none';
+    }
+    
+    // Show the confirm order section with screenshot preview
+    const confirmSection = document.getElementById('confirmOrderSection');
+    const screenshotPreview = document.getElementById('uploadedScreenshotPreview');
+    
+    if (confirmSection && screenshotPreview) {
+      screenshotPreview.innerHTML = `
+        <h4 style="color: #10b981; margin-bottom: 12px; font-size: 16px;">✅ Payment Screenshot Uploaded</h4>
+        <img src="${imageSrc}" alt="Payment Screenshot" style="max-width: 200px; max-height: 120px; border-radius: 8px; border: 2px solid #10b981;">
+        <p style="color: #666; font-size: 12px; margin-top: 8px;">📎 ${fileName}</p>
+      `;
+      
+      confirmSection.style.display = 'block';
+      
+      // Store screenshot data for order finalization
+      this.currentScreenshot = {
+        data: imageSrc,
+        fileName: fileName
+      };
+      
+      // Handle confirm order button click
+      document.getElementById('confirmOrderBtn').onclick = () => {
+        this.finalizeOrderWithScreenshot(imageSrc, fileName);
+      };
+    }
+  }
+
+  showOrderConfirmation(imageSrc, fileName) {
+    // Render as full-screen page instead of modal
+    this.renderOrderConfirmationPage(imageSrc, fileName);
+  }
+
+  renderOrderConfirmationPage(imageSrc, fileName) {
+    const fullName = document.getElementById("fullName").value;
+    const email = document.getElementById("email").value;
+    const phone = document.getElementById("phone").value;
+    const address = document.getElementById("address").value;
+    const city = document.getElementById("city").value;
+    const postalCode = document.getElementById("postalCode").value;
+    
+    // Validate required fields
+    if (!fullName || !phone || !address || !city) {
+      alert("Please fill in all required fields before confirming order");
+      return;
+    }
+    
+    const cartTotal = this.cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const orderItems = this.cart.map(item => 
+      `<div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+        <span>${item.name} x ${item.quantity}</span>
+        <span>₹${(item.price * item.quantity).toLocaleString()}</span>
+      </div>`
+    ).join('');
+
+    const app = document.getElementById("app");
+    app.innerHTML = `
+      <div style="min-height: 100vh; background: linear-gradient(135deg, #fef2f2 0%, #ffffff 50%, #fef2f2 100%); padding-top: 96px; padding-bottom: 80px;">
+        <div class="container" style="max-width: 800px;">
+          <button class="back-button" data-page="payment" style="margin-bottom: 24px; background: #6b7280; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: 600;">← Back to Payment</button>
+          
+          <div style="background: white; border-radius: 16px; padding: 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 2px solid #fecaca;">
+            <h1 style="font-size: 36px; font-weight: 700; margin-bottom: 32px; text-align: center; color: #000;">Confirm Your Order</h1>
+            
+            <!-- Customer Details -->
+            <div style="background: #f9fafb; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+              <h3 style="color: #000; margin-bottom: 16px; font-size: 20px;">Customer Details</h3>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <p style="margin: 8px 0; color: #666;"><strong>Name:</strong> ${fullName}</p>
+                <p style="margin: 8px 0; color: #666;"><strong>Phone:</strong> ${phone}</p>
+                <p style="margin: 8px 0; color: #666;"><strong>Email:</strong> ${email}</p>
+                <p style="margin: 8px 0; color: #666; grid-column: 1 / -1;"><strong>Address:</strong> ${address}, ${city}, ${postalCode}</p>
+              </div>
+            </div>
+            
+            <!-- Order Items -->
+            <div style="background: #f9fafb; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+              <h3 style="color: #000; margin-bottom: 16px; font-size: 20px;">Order Items</h3>
+              ${orderItems}
+              <div style="display: flex; justify-content: space-between; padding: 16px 0; border-top: 2px solid #dc2626; margin-top: 16px; font-weight: bold; color: #000; font-size: 24px;">
+                <span>Total Amount:</span>
+                <span style="color: #dc2626;">₹${cartTotal.toLocaleString()}</span>
+              </div>
+            </div>
+            
+            <!-- Payment Screenshot -->
+            <div style="background: #f9fafb; border-radius: 12px; padding: 24px; margin-bottom: 32px; text-align: center;">
+              <h3 style="color: #000; margin-bottom: 16px; font-size: 20px;">Payment Screenshot</h3>
+              <img src="${imageSrc}" alt="Payment Screenshot" style="max-width: 300px; max-height: 200px; border-radius: 12px; border: 2px solid #dc2626; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+              <p style="color: #666; font-size: 14px; margin-top: 12px; font-weight: 600;">📎 ${fileName}</p>
+              <p style="color: #10b981; font-size: 14px; margin-top: 8px; font-weight: 600;">✅ Payment screenshot uploaded successfully!</p>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+              <button id="confirmFinalOrder" style="background: #dc2626; color: white; border: none; padding: 20px 40px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 18px; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);">
+                ✅ Confirm Order
+              </button>
+              <button data-page="payment" style="background: #6b7280; color: white; border: none; padding: 20px 40px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 18px;">
+                ← Go Back
+              </button>
+            </div>
+            
+            <p style="text-align: center; color: #666; font-size: 14px; margin-top: 24px; line-height: 1.6;">
+              By confirming, your order will be sent to Manjula Mobiles for processing.<br>
+              We will verify your payment and contact you shortly.
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Store screenshot data for later use
+    this.currentScreenshot = {
+      data: imageSrc,
+      fileName: fileName
+    };
+    
+    // Handle confirm final order button
+    document.getElementById('confirmFinalOrder').onclick = () => {
+      this.finalizeOrderWithScreenshot(imageSrc, fileName);
+    };
+  }
+
+  showCashOnDeliveryConfirm() {
+    // Hide the action buttons
+    const actionButtons = document.getElementById('actionButtons');
+    if (actionButtons) {
+      actionButtons.style.display = 'none';
+    }
+    
+    // Show the confirm order section for Cash on Delivery
+    const confirmSection = document.getElementById('confirmOrderSection');
+    const screenshotPreview = document.getElementById('uploadedScreenshotPreview');
+    
+    if (confirmSection && screenshotPreview) {
+      screenshotPreview.innerHTML = `
+        <h4 style="color: #dc2626; margin-bottom: 12px; font-size: 16px;">💵 Cash on Delivery Selected</h4>
+        <div style="background: #fef2f2; border: 2px solid #dc2626; border-radius: 8px; padding: 16px; margin: 12px 0;">
+          <p style="color: #dc2626; font-size: 14px; margin: 0; font-weight: 600;">
+            📦 You will pay when your order is delivered to your address.
+          </p>
+        </div>
+        <p style="color: #666; font-size: 12px;">No advance payment required</p>
+      `;
+      
+      confirmSection.style.display = 'block';
+      
+      // Handle confirm order button click for Cash on Delivery
+      document.getElementById('confirmOrderBtn').onclick = () => {
+        this.processPayment("Cash on Delivery");
+      };
+    }
+  }
+
+  generatePaymentQRCode(amount) {
+    const upiPaymentUrl = `upi://pay?pa=${this.upiLink}&pn=ManjulaMobiles&am=${amount}&tr=ORDER-${Date.now()}&tn=Payment%20for%20Manjula%20Mobiles%20Order`;
+    
+    const qrContainer = document.getElementById('paymentQrCode');
+    if (qrContainer && typeof QRCode !== 'undefined') {
+      qrContainer.innerHTML = '';
+      new QRCode(qrContainer, {
+        text: upiPaymentUrl,
+        width: 150,
+        height: 150,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    } else if (qrContainer) {
+      // Fallback if QRCode library is not available
+      qrContainer.innerHTML = `
+        <div style="width: 150px; height: 150px; background: #f3f4f6; border: 2px dashed #d1d5db; display: flex; align-items: center; justify-content: center; border-radius: 8px; margin: 0 auto;">
+          <span style="color: #6b7280; font-size: 12px; text-align: center;">QR Code<br>Loading...</span>
+        </div>
+      `;
+    }
+  }
+
+  openPaymentApp(appType, amount) {
+    const upiId = this.upiLink;
+    const merchantName = "ManjulaMobiles";
+    const transactionNote = "Payment for Manjula Mobiles Order";
+    const transactionId = `ORDER-${Date.now()}`;
+    
+    let paymentUrl = '';
+    let appName = '';
+    
+    switch(appType) {
+      case 'gpay':
+        // Google Pay deep link
+        paymentUrl = `tez://upi/pay?pa=${upiId}&pn=${merchantName}&am=${amount}&tr=${transactionId}&tn=${transactionNote}`;
+        appName = 'Google Pay';
+        break;
+      case 'phonepe':
+        // PhonePe deep link
+        paymentUrl = `phonepe://pay?pa=${upiId}&pn=${merchantName}&am=${amount}&tr=${transactionId}&tn=${transactionNote}`;
+        appName = 'PhonePe';
+        break;
+      case 'paytm':
+        // Paytm deep link
+        paymentUrl = `paytmmp://pay?pa=${upiId}&pn=${merchantName}&am=${amount}&tr=${transactionId}&tn=${transactionNote}`;
+        appName = 'Paytm';
+        break;
+    }
+    
+    // Create a temporary link element to trigger the app
+    const link = document.createElement('a');
+    link.href = paymentUrl;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    
+    // Try to open the app
+    try {
+      link.click();
+      
+      // Show success message immediately
+      setTimeout(() => {
+        alert(`Opening ${appName}...\n\nIf ${appName} doesn't open automatically:\n\n1. Open ${appName} manually\n2. Pay ₹${amount.toLocaleString()} to: ${upiId}\n3. Take a screenshot of payment confirmation\n4. Come back and upload the screenshot`);
+      }, 500);
+      
+    } catch (error) {
+      // Fallback if deep link fails
+      alert(`Please open ${appName} manually and pay:\n\nUPI ID: ${upiId}\nAmount: ₹${amount.toLocaleString()}\n\nAfter payment, take a screenshot and upload it here.`);
+    } finally {
+      // Clean up
+      document.body.removeChild(link);
+    }
+    
+    // For mobile devices, try alternative method
+    if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+      // Try to open using window.location for better mobile support
+      setTimeout(() => {
+        try {
+          window.location.href = paymentUrl;
+        } catch (e) {
+          console.log('Deep link failed, user will need to open app manually');
+        }
+      }, 100);
+    }
+  }
+
+  async finalizeOrderWithScreenshot(screenshotData, fileName) {
+    console.log('🔍 Processing order with screenshot:', {
+      hasData: !!screenshotData,
+      dataLength: screenshotData?.length,
+      fileName: fileName,
+      dataStart: screenshotData?.substring(0, 30)
+    });
+    
+    // Use the pending order data that was stored during proceedToPayment
+    if (!this.pendingOrder) {
+      alert("Order data not found. Please go back and fill the delivery information again.");
+      this.renderPage("checkout");
+      return;
+    }
+    
+    // Validate screenshot data
+    if (!screenshotData || !fileName) {
+      alert("Screenshot data is missing. Please upload the screenshot again.");
+      return;
+    }
+    
+    // Create order with actual screenshot data
+    const order = {
+      id: Math.random().toString(36).substr(2, 9).toUpperCase(),
+      date: new Date().toLocaleDateString(),
+      customer: this.pendingOrder.customer,
+      items: this.pendingOrder.items,
+      total: this.pendingOrder.total,
+      paymentMethod: "UPI Payment (Screenshot Uploaded)",
+      status: "Payment Verification Pending",
+      paymentScreenshot: {
+        data: screenshotData, // Use actual screenshot data
+        fileName: fileName,
+        uploadTime: new Date().toISOString()
+      }
+    };
+    
+    console.log('📸 Order with screenshot:', {
+      orderId: order.id,
+      hasScreenshot: !!order.paymentScreenshot,
+      screenshotDataLength: order.paymentScreenshot.data.length,
+      isValidImageData: order.paymentScreenshot.data.startsWith('data:image/')
+    });
+    
+    try {
+      // Save order with screenshot
+      await this.saveSingleOrder(order);
+      
+      alert(`✅ Order Placed Successfully! 
+      
+Order ID: #${order.id}
+Payment Method: UPI Payment (Screenshot Uploaded)
+Status: Payment Verification Pending
+
+Your payment screenshot has been uploaded and saved. We will verify your payment and contact you shortly.
+
+Thank you for choosing Manjula Mobiles!`);
+      
+      // Clear cart and go to home
+      this.cart = [];
+      this.pendingOrder = null;
+      this.renderPage("home");
+    } catch (error) {
+      console.error('❌ Error processing order:', error);
+      alert('Failed to place order. Error: ' + error.message + '\n\nPlease try again or contact support.');
+    }
+  }
+
   renderDashboard() {
     return `
       <div style="min-height: 100vh; background-color: #020617; padding-top: 96px; padding-bottom: 80px;">
@@ -2898,7 +3337,7 @@ class ManjulaMobilesApp {
               <div style="margin-bottom: 32px;">
                 <h3 style="font-size: 20px; font-weight: 700; margin-bottom: 16px;">Why Choose Us?</h3>
                 <ul style="list-style: none; display: flex; flex-direction: column; gap: 12px;">
-                  <li style="display: flex; align-items: center; gap: 12px;"><span style="color: #fb923c; font-weight: 700;">✓</span> <span>Expert technicians with 15+ years experience</span></li>
+                  <li style="display: flex; align-items: center; gap: 12px;"><span style="color: #fb923c; font-weight: 700;">✓</span> <span>Expert technicians with ${this.getYearsOfExperience()}+ years experience</span></li>
                   <li style="display: flex; align-items: center; gap: 12px;"><span style="color: #fb923c; font-weight: 700;">✓</span> <span>100% genuine spare parts and accessories</span></li>
                   <li style="display: flex; align-items: center; gap: 12px;"><span style="color: #fb923c; font-weight: 700;">✓</span> <span>24-hour express service available</span></li>
                   <li style="display: flex; align-items: center; gap: 12px;"><span style="color: #fb923c; font-weight: 700;">✓</span> <span>6-month warranty on all repairs</span></li>

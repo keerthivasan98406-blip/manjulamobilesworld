@@ -18,14 +18,19 @@ class OwnerPortalApp {
     this.API_URL = `${baseURL}/api`
     
     // Socket.IO connection for real-time updates with reconnection
-    this.socket = io(baseURL, {
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: 10
-    })
-    this.setupSocketListeners()
+    if (typeof io !== 'undefined') {
+      this.socket = io(baseURL, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: 10
+      })
+      this.setupSocketListeners()
+    } else {
+      console.warn('⚠️ Socket.IO not loaded, real-time updates disabled');
+      this.socket = null;
+    }
     
     this.products = [];
     this.trackingData = [];
@@ -36,6 +41,11 @@ class OwnerPortalApp {
 
   // Socket.IO Real-time Listeners
   setupSocketListeners() {
+    if (!this.socket) {
+      console.warn('⚠️ No socket connection, skipping listeners');
+      return;
+    }
+    
     this.socket.on('connect', () => {
       console.log('✅ Connected to server for real-time updates');
       console.log('Socket ID:', this.socket.id);
@@ -337,15 +347,27 @@ class OwnerPortalApp {
   // Orders Management Methods
   async loadOrdersFromStorage() {
     try {
+      console.log('📡 [OWNER] Loading orders from database...');
       const response = await fetch(`${this.API_URL}/orders`);
       if (response.ok) {
         this.orders = await response.json();
-        console.log('✅ Loaded orders from database:', this.orders.length);
+        console.log('✅ [OWNER] Loaded orders from database:', this.orders.length);
+        
+        // Debug screenshot data in orders
+        this.orders.forEach((order, index) => {
+          console.log(`📋 [OWNER] Order ${index + 1}:`, {
+            orderId: order.orderId,
+            hasScreenshot: !!order.paymentScreenshot,
+            screenshotDataLength: order.paymentScreenshot?.data?.length,
+            paymentMethod: order.paymentMethod
+          });
+        });
       } else {
+        console.log('⚠️ [OWNER] Failed to load orders from database');
         this.orders = [];
       }
     } catch (error) {
-      console.error('❌ Error loading orders:', error);
+      console.error('❌ [OWNER] Error loading orders:', error);
       this.orders = [];
     }
   }
@@ -535,7 +557,7 @@ class OwnerPortalApp {
     );
 
     return `
-      <div style="min-height: 100vh; background-color: #020617; padding-top: 96px; padding-bottom: 80px;">
+      <div style="min-height: 100vh; background-color: #f13e74fb; padding-top: 96px; padding-bottom: 80px;">
         <div class="container">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
             <div>
@@ -603,7 +625,7 @@ class OwnerPortalApp {
 
   renderAdminTracking() {
     return `
-      <div style="min-height: 100vh; background-color: #020617; padding-top: 96px; padding-bottom: 80px;">
+      <div style="min-height: 100vh; background-color: #f13e74fb; padding-top: 96px; padding-bottom: 80px;">
         <div class="container">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
             <div>
@@ -734,7 +756,7 @@ class OwnerPortalApp {
 
   renderAdminOrders() {
     return `
-      <div style="min-height: 100vh; background-color: #020617; padding-top: 96px; padding-bottom: 80px;">
+      <div style="min-height: 100vh; background-color: #f13e74fb; padding-top: 96px; padding-bottom: 80px;">
         <div class="container">
           <div style="margin-bottom: 32px;">
             <h1 style="font-size: 36px; font-weight: 700; margin-bottom: 8px;">Orders Management</h1>
@@ -758,20 +780,49 @@ class OwnerPortalApp {
   }
 
   renderOrderCard(order) {
+    // Fix order date formatting
+    let formattedDate = 'Date not available';
+    if (order.orderDate) {
+      try {
+        const date = new Date(order.orderDate);
+        formattedDate = date.toLocaleString('en-IN', { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric', 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'Asia/Kolkata'
+        });
+      } catch (e) {
+        console.error('Date formatting error:', e);
+        formattedDate = order.orderDate.toString();
+      }
+    } else if (order.createdAt) {
+      try {
+        const date = new Date(order.createdAt);
+        formattedDate = date.toLocaleString('en-IN', { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric', 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'Asia/Kolkata'
+        });
+      } catch (e) {
+        console.error('Date formatting error:', e);
+        formattedDate = order.createdAt.toString();
+      }
+    }
+
     return `
       <div class="order-card" style="background-color: rgba(30, 41, 59, 0.5); border: 1px solid #334155; border-radius: 8px; padding: 16px; margin-bottom: 12px; max-width: 100%;">
         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
           <div>
             <h4 style="margin-bottom: 4px; font-size: 14px; font-weight: 600;">Order #${order.id || order.orderId}</h4>
             <div style="color: #94a3b8; font-size: 11px;">
-              📅 ${order.orderDate ? new Date(order.orderDate).toLocaleString('en-IN', { 
-                year: 'numeric', 
-                month: 'short', 
-                day: 'numeric', 
-                hour: '2-digit', 
-                minute: '2-digit',
-                hour12: true 
-              }) : order.date || 'Date not available'}
+              📅 ${formattedDate}
             </div>
           </div>
           <span class="status-badge status-${order.status.toLowerCase().replace(/\s+/g, "-")}" style="font-size: 10px; padding: 4px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.2); color: #10b981;">${order.status}</span>
@@ -804,14 +855,309 @@ class OwnerPortalApp {
 
         <div style="margin-bottom: 12px; padding: 6px; background: rgba(16, 185, 129, 0.1); border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.3);">
           <div style="font-size: 11px; color: #10b981; font-weight: 600;">Payment: ${order.paymentMethod}</div>
+          ${order.paymentScreenshot && order.paymentScreenshot.data ? `
+            <div style="margin-top: 8px;">
+              <div style="font-size: 10px; color: #94a3b8; margin-bottom: 4px;">Payment Screenshot:</div>
+              <img src="${order.paymentScreenshot.data || order.paymentScreenshot.imageUrl}" alt="Payment Screenshot" 
+                   style="max-width: 150px; max-height: 100px; border-radius: 4px; border: 1px solid #334155; cursor: pointer; display: block;"
+                   data-screenshot-id="${order.orderId || order.id}"
+                   onclick="app.showScreenshotFromOrder('${order.orderId || order.id}')"
+                   onerror="this.style.display='none'; this.nextElementSibling.innerHTML='❌ Image failed to load'; console.error('Failed to load screenshot for order:', '${order.orderId || order.id}')">
+              <div style="font-size: 9px; color: #64748b; margin-top: 2px;">
+                📎 ${order.paymentScreenshot.fileName} • ${new Date(order.paymentScreenshot.uploadTime).toLocaleString('en-IN', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                })}
+                ${order.paymentScreenshot.data ? '<span style="color: #10b981;">• 📄 Image Data</span>' : '<span style="color: #f59e0b;">• ⚠️ No Image</span>'}
+              </div>
+            </div>
+          ` : order.paymentMethod.includes('Screenshot') ? `
+            <div style="margin-top: 8px; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.3);">
+              <div style="font-size: 10px; color: #dc2626; font-weight: 600;">⚠️ Screenshot data missing</div>
+              <div style="font-size: 9px; color: #dc2626;">Payment screenshot was uploaded but data is not available</div>
+            </div>
+          ` : ''}
         </div>
 
         <div style="display: flex; gap: 6px;">
-          <button class="btn btn-secondary" style="flex: 1; padding: 6px 10px; font-size: 11px;" onclick="app.updateOrderStatus('${order.id || order.orderId}')">Update Status</button>
+          <button class="btn btn-primary" style="flex: 1; padding: 6px 10px; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;" onclick="app.printOrder('${order.id || order.orderId}')">
+            🖨️ Print Order
+          </button>
           <button class="btn" style="flex: 1; padding: 6px 10px; font-size: 11px; background: rgba(244, 63, 94, 0.1); color: #f87171; border: 1px solid #f87171; border-radius: 4px;" onclick="app.deleteOrder('${order.id || order.orderId}')">Delete</button>
         </div>
       </div>
     `
+  }
+
+  showScreenshotFromOrder(orderId) {
+    // Find the order by ID
+    const order = this.orders.find(o => (o.orderId === orderId || o.id === orderId));
+    
+    if (!order || !order.paymentScreenshot || !order.paymentScreenshot.data) {
+      alert('Screenshot not found for this order.');
+      return;
+    }
+    
+    // Use base64 data directly (same as product images)
+    const imageSrc = order.paymentScreenshot.data || order.paymentScreenshot.imageUrl;
+    
+    // Show the screenshot modal
+    this.showScreenshotModal(imageSrc, order.paymentScreenshot.fileName);
+  }
+
+  showScreenshotModal(imageSrc, fileName) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      padding: 20px;
+      box-sizing: border-box;
+    `;
+    
+    modal.innerHTML = `
+      <div style="background: white; border-radius: 12px; padding: 24px; max-width: 600px; width: 100%; text-align: center;">
+        <h3 style="margin-bottom: 16px; color: #000;">Payment Screenshot</h3>
+        <img src="${imageSrc}" alt="Payment Screenshot" style="max-width: 100%; max-height: 400px; border-radius: 8px; margin-bottom: 16px; border: 2px solid #fecaca;">
+        <p style="color: #666; font-size: 14px; margin-bottom: 20px;">File: ${fileName}</p>
+        <button id="closeModal" style="background: #dc2626; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 600;">Close</button>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Handle close button
+    document.getElementById('closeModal').onclick = () => {
+      document.body.removeChild(modal);
+    };
+    
+    // Close on background click
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        document.body.removeChild(modal);
+      }
+    };
+  }
+
+  // Print Order functionality
+  printOrder(orderId) {
+    // Find the order by ID
+    const order = this.orders.find(o => (o.orderId === orderId || o.id === orderId));
+    
+    if (!order) {
+      alert('Order not found!');
+      return;
+    }
+
+    // Format order date
+    let formattedDate = 'Date not available';
+    if (order.orderDate) {
+      try {
+        const date = new Date(order.orderDate);
+        formattedDate = date.toLocaleString('en-IN', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric', 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'Asia/Kolkata'
+        });
+      } catch (e) {
+        formattedDate = order.orderDate.toString();
+      }
+    } else if (order.createdAt) {
+      try {
+        const date = new Date(order.createdAt);
+        formattedDate = date.toLocaleString('en-IN', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric', 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'Asia/Kolkata'
+        });
+      } catch (e) {
+        formattedDate = order.createdAt.toString();
+      }
+    }
+
+    // Create printable content
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Order #${order.orderId || order.id} - Manjula Mobiles</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            color: #000; 
+            background: white;
+          }
+          .header { 
+            text-align: center; 
+            border-bottom: 2px solid #dc2626; 
+            padding-bottom: 20px; 
+            margin-bottom: 30px; 
+          }
+          .logo { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #dc2626; 
+            margin-bottom: 5px; 
+          }
+          .subtitle { 
+            color: #666; 
+            font-size: 14px; 
+          }
+          .order-info { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 30px; 
+          }
+          .order-details, .customer-details { 
+            width: 48%; 
+          }
+          .section-title { 
+            font-weight: bold; 
+            color: #dc2626; 
+            margin-bottom: 10px; 
+            border-bottom: 1px solid #eee; 
+            padding-bottom: 5px; 
+          }
+          .items-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 20px 0; 
+          }
+          .items-table th, .items-table td { 
+            border: 1px solid #ddd; 
+            padding: 12px; 
+            text-align: left; 
+          }
+          .items-table th { 
+            background-color: #f8f9fa; 
+            font-weight: bold; 
+          }
+          .total-row { 
+            font-weight: bold; 
+            background-color: #f8f9fa; 
+          }
+          .payment-info { 
+            background-color: #f0f9ff; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin: 20px 0; 
+            border-left: 4px solid #dc2626; 
+          }
+          .footer { 
+            text-align: center; 
+            margin-top: 40px; 
+            padding-top: 20px; 
+            border-top: 1px solid #eee; 
+            color: #666; 
+            font-size: 12px; 
+          }
+          @media print {
+            body { margin: 0; }
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo">📱 MANJULA MOBILES</div>
+          <div class="subtitle">Mobile Repair & Parts • Ramapuram, Tamil Nadu</div>
+          <div class="subtitle">📞 +91 82484 54841 • ✉️ manjulamobiles125@gmail.com</div>
+        </div>
+
+        <div class="order-info">
+          <div class="order-details">
+            <div class="section-title">Order Information</div>
+            <p><strong>Order ID:</strong> #${order.orderId || order.id}</p>
+            <p><strong>Date:</strong> ${formattedDate}</p>
+            <p><strong>Status:</strong> ${order.status}</p>
+            <p><strong>Payment Method:</strong> ${order.paymentMethod}</p>
+          </div>
+          
+          <div class="customer-details">
+            <div class="section-title">Customer Details</div>
+            <p><strong>Name:</strong> ${order.customer.name}</p>
+            <p><strong>Phone:</strong> ${order.customer.phone}</p>
+            <p><strong>Email:</strong> ${order.customer.email}</p>
+            <p><strong>Address:</strong> ${order.customer.address}</p>
+          </div>
+        </div>
+
+        <div class="section-title">Order Items</div>
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th>Item Name</th>
+              <th>Quantity</th>
+              <th>Unit Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${order.items.map(item => `
+              <tr>
+                <td>${item.name}</td>
+                <td>${item.quantity}</td>
+                <td>₹${item.price.toLocaleString()}</td>
+                <td>₹${(item.price * item.quantity).toLocaleString()}</td>
+              </tr>
+            `).join('')}
+            <tr class="total-row">
+              <td colspan="3"><strong>Total Amount</strong></td>
+              <td><strong>₹${order.total.toLocaleString()}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="payment-info">
+          <div class="section-title">Payment Information</div>
+          <p><strong>Payment Method:</strong> ${order.paymentMethod}</p>
+          ${order.paymentScreenshot && order.paymentScreenshot.data ? 
+            `<p><strong>Payment Screenshot:</strong> Attached (${order.paymentScreenshot.fileName})</p>` : 
+            '<p><strong>Payment Screenshot:</strong> Not available</p>'
+          }
+        </div>
+
+        <div class="footer">
+          <p>Thank you for choosing Manjula Mobiles!</p>
+          <p>For any queries, contact us at +91 82484 54841 or manjulamobiles125@gmail.com</p>
+          <p>Printed on: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Open print window
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    // Wait for content to load then print
+    printWindow.onload = function() {
+      printWindow.focus();
+      printWindow.print();
+      // Close window after printing (optional)
+      setTimeout(() => {
+        printWindow.close();
+      }, 1000);
+    };
   }
 
   renderAddProductForm() {
