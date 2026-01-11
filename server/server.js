@@ -30,22 +30,36 @@ const clientPath = path.join(__dirname, '../client');
 console.log('📁 Serving static files from:', clientPath);
 app.use(express.static(clientPath));
 
-// MongoDB Connection with optimized settings
+// MongoDB Connection with optimized settings and faster timeout
 const MONGODB_URI = process.env.MONGO_URI;
 
 mongoose.connect(MONGODB_URI, {
   maxPoolSize: 20, // Increased for faster concurrent requests
   minPoolSize: 5,  // More ready connections
-  serverSelectionTimeoutMS: 10000, // Increased to 10 seconds
-  socketTimeoutMS: 30000, // Increased to 30 seconds
-  connectTimeoutMS: 10000, // Increased to 10 seconds
+  serverSelectionTimeoutMS: 5000, // Reduced to 5 seconds for faster failure
+  socketTimeoutMS: 15000, // Reduced to 15 seconds
+  connectTimeoutMS: 5000, // Reduced to 5 seconds for faster failure
   family: 4 // Use IPv4, skip trying IPv6
 })
   .then(() => {
     console.log('✅ Connected to MongoDB');
     console.log('📊 Connection pool size: 10');
+    
+    // Drop the problematic 'id' index if it exists (after connection is established)
+    Product.collection.dropIndex('id_1').then(() => {
+      console.log('✅ Dropped id_1 index');
+    }).catch(err => {
+      if (err.code === 27) {
+        console.log('ℹ️ Index id_1 does not exist (this is fine)');
+      } else {
+        console.log('ℹ️ Could not drop index:', err.message);
+      }
+    });
   })
-  .catch(err => console.error('❌ MongoDB connection error:', err));
+  .catch(err => {
+    console.error('❌ MongoDB connection error:', err.message);
+    console.log('⚠️ Running in offline mode - using fallback data');
+  });
 
 // Product Schema
 const productSchema = new mongoose.Schema({
@@ -75,17 +89,6 @@ productSchema.index({ category: 1, inStock: 1 });
 productSchema.index({ createdAt: 1 });
 
 const Product = mongoose.model('Product', productSchema);
-
-// Drop the problematic 'id' index if it exists
-Product.collection.dropIndex('id_1').then(() => {
-  console.log('✅ Dropped id_1 index');
-}).catch(err => {
-  if (err.code === 27) {
-    console.log('ℹ️ Index id_1 does not exist (this is fine)');
-  } else {
-    console.log('ℹ️ Could not drop index:', err.message);
-  }
-});
 
 // Tracking Schema
 const trackingSchema = new mongoose.Schema({
@@ -321,6 +324,48 @@ let productsCache = null;
 let cacheTimestamp = 0;
 const CACHE_DURATION = 60000; // 60 seconds - longer cache for speed
 
+// Fallback products data for when database is unavailable
+const fallbackProducts = [
+  {
+    id: "fallback-1",
+    name: "iPhone 15 Pro Max",
+    category: "Smartphones",
+    price: 134900,
+    originalPrice: 159900,
+    image: "📱",
+    imageUrl: "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-max-naturaltitanium-select?wid=470&hei=556&fmt=png-alpha&.v=1692845702781",
+    rating: 4.8,
+    reviews: 1250,
+    inStock: true,
+    badge: "New"
+  },
+  {
+    id: "fallback-2", 
+    name: "Samsung Galaxy S24 Ultra",
+    category: "Smartphones",
+    price: 124999,
+    originalPrice: 139999,
+    image: "📱",
+    imageUrl: "https://images.samsung.com/is/image/samsung/p6pim/in/2401/gallery/in-galaxy-s24-ultra-s928-sm-s928bztqins-thumb-539573073",
+    rating: 4.7,
+    reviews: 890,
+    inStock: true,
+    badge: "Popular"
+  },
+  {
+    id: "fallback-3",
+    name: "Screen Replacement Service",
+    category: "Services", 
+    price: 2999,
+    originalPrice: 4999,
+    image: "🔧",
+    rating: 4.9,
+    reviews: 450,
+    inStock: true,
+    badge: "Service"
+  }
+];
+
 // Get all products
 app.get('/api/products', async (req, res) => {
   try {
@@ -336,12 +381,21 @@ app.get('/api/products', async (req, res) => {
     }
 
     console.log('📡 Fetching products from database...');
-    // Use lean() for faster queries (returns plain JS objects)
+    
+    // Check if mongoose is connected
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⚠️ Database not connected, using fallback data');
+      res.set('Cache-Control', 'public, max-age=30');
+      return res.json(fallbackProducts);
+    }
+    
+    // Use lean() for faster queries with timeout
     const products = await Product.find()
       .lean()
       .select('-__v -updatedAt -createdAt') // Exclude unnecessary fields for speed
       .limit(100) // Limit results for faster loading
-      .sort({ _id: -1 }); // Sort by _id is faster than createdAt
+      .sort({ _id: -1 }) // Sort by _id is faster than createdAt
+      .maxTimeMS(3000); // 3 second timeout for faster response
     
     // Transform MongoDB _id to id for client compatibility
     const transformedProducts = products.map(p => ({
@@ -360,17 +414,12 @@ app.get('/api/products', async (req, res) => {
     res.set('Cache-Control', 'public, max-age=60');
     res.json(transformedProducts);
   } catch (error) {
-    console.error('❌ Error fetching products:', error);
+    console.error('❌ Error fetching products:', error.message);
     
-    // If timeout, send specific error
-    if (error.name === 'MongooseError' && error.message.includes('buffering timed out')) {
-      return res.status(504).json({ 
-        error: 'Database query timeout - please try again',
-        timeout: true 
-      });
-    }
-    
-    res.status(500).json({ error: error.message });
+    // Return fallback data on any error
+    console.log('⚠️ Using fallback products due to database error');
+    res.set('Cache-Control', 'public, max-age=30');
+    res.json(fallbackProducts);
   }
 });
 
