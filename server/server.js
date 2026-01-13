@@ -199,6 +199,19 @@ const saveImageLocally = async (base64Data, fileName) => {
 // Serve uploaded images
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// SEO Routes
+app.get('/sitemap.xml', (req, res) => {
+  res.sendFile(path.join(clientPath, 'sitemap.xml'));
+});
+
+app.get('/robots.txt', (req, res) => {
+  res.sendFile(path.join(clientPath, 'robots.txt'));
+});
+
+app.get('/business-info.json', (req, res) => {
+  res.sendFile(path.join(clientPath, 'business-info.json'));
+});
+
 // DIRECT TEST - Add this button to test screenshot saving directly
 app.post('/api/direct-test', async (req, res) => {
   try {

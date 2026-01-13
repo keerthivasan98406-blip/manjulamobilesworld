@@ -1,0 +1,106 @@
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "Manjula Mobiles",
+  "alternateName": ["Manjulamobil", "Manjula Mobile", "Manjula Mobiles World"],
+  "description": "Professional mobile phone repair services, spare parts, and accessories in Ramapuram, Tamil Nadu. Expert technicians, quality parts, 24/7 emergency service available.",
+  "url": "https://manjulamobilesworld-whwt.onrender.com",
+  "telephone": "+91-82484-54841",
+  "email": "manjulamobiles125@gmail.com",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "Ramapuram",
+    "addressLocality": "Ramapuram", 
+    "addressRegion": "Tamil Nadu",
+    "postalCode": "600089",
+    "addressCountry": "IN"
+  },
+  "geo": {
+    "@type": "GeoCoordinates",
+    "latitude": "13.0827",
+    "longitude": "80.2707"
+  },
+  "openingHours": [
+    "Mo-Su 09:00-22:00"
+  ],
+  "priceRange": "₹₹",
+  "image": [
+    "https://i.pinimg.com/736x/e3/6f/79/e36f793e016dd6b35cd27f84030b7487.jpg"
+  ],
+  "logo": "https://i.pinimg.com/736x/e3/6f/79/e36f793e016dd6b35cd27f84030b7487.jpg",
+  "sameAs": [
+    "https://manjulamobilesworld-whwt.onrender.com"
+  ],
+  "serviceArea": {
+    "@type": "Place",
+    "name": "Ramapuram, Tamil Nadu, India"
+  },
+  "areaServed": [
+    "Ramapuram",
+    "Chennai",
+    "Tamil Nadu"
+  ],
+  "hasOfferCatalog": {
+    "@type": "OfferCatalog",
+    "name": "Mobile Repair Services & Parts",
+    "itemListElement": [
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "name": "iPhone Repair",
+          "description": "Professional iPhone screen replacement, battery replacement, and repair services"
+        }
+      },
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service", 
+          "name": "Samsung Mobile Repair",
+          "description": "Samsung smartphone repair services including screen and battery replacement"
+        }
+      },
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "name": "Mobile Screen Replacement", 
+          "description": "Professional mobile screen replacement service for all brands"
+        }
+      },
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "name": "Mobile Battery Replacement",
+          "description": "Mobile battery replacement service with quality batteries"
+        }
+      },
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Product",
+          "name": "Mobile Parts & Accessories",
+          "description": "Quality mobile parts, chargers, cases, and accessories"
+        }
+      }
+    ]
+  },
+  "review": {
+    "@type": "Review",
+    "reviewRating": {
+      "@type": "Rating",
+      "ratingValue": "4.8",
+      "bestRating": "5"
+    },
+    "author": {
+      "@type": "Person",
+      "name": "Customer Reviews"
+    }
+  },
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.8",
+    "reviewCount": "150"
+  }
+}
