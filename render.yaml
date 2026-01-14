@@ -4,7 +4,7 @@ services:
     env: node
     plan: free
     buildCommand: cd server && npm install
-    startCommand: cd server && npm start
+    startCommand: cd server && NODE_ENV=production node server.js
     envVars:
       - key: NODE_ENV
         value: production

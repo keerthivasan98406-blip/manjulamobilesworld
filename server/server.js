@@ -7,7 +7,7 @@ const path = require('path');
 require('dotenv').config();
 
 // Import keep-alive service
-require('./keep-alive');
+require('../keep-alive');
 
 const app = express();
 const server = http.createServer(app);
