@@ -1,4 +1,4 @@
-// Owner Portal - Manjula Mobiles
+// Owner Portal - Manjula Mobile World
 class OwnerPortalApp {
   constructor() {
     this.currentPage = "admin-login"
@@ -170,26 +170,51 @@ class OwnerPortalApp {
 
   async init() {
     try {
-      console.log('🚀 Initializing Manjula Mobiles App...');
+      console.log('🚀 Initializing Manjula Mobile World App...');
       
-      // Show loading screen immediately
-      this.showLoadingScreen();
-      
-      // Check if server is waking up from sleep
-      this.checkServerStatus();
-      
-      // Setup event listeners
+      // Setup event listeners first
       this.setupEventListeners();
       
-      // Load data from database with retry logic
-      await this.loadDataWithRetry();
-      
-      // Render initial page
+      // Render login page immediately (don't wait for server)
       await this.renderPage(this.currentPage);
+      
+      // Load data in background without blocking UI
+      this.loadDataInBackground();
       
     } catch (error) {
       console.error('❌ Error during initialization:', error);
       this.showErrorMessage('Failed to load application. Please refresh the page.');
+    }
+  }
+
+  async loadDataInBackground() {
+    try {
+      console.log('📡 Loading data in background...');
+      
+      // Try to load data, but don't block the UI
+      await Promise.all([
+        this.loadProductsFromStorage().catch(err => {
+          console.log('⚠️ Products load failed:', err.message);
+          this.products = [];
+        }),
+        this.loadTrackingFromStorage().catch(err => {
+          console.log('⚠️ Tracking load failed:', err.message);
+          this.trackingData = [];
+        }),
+        this.loadOrdersFromStorage().catch(err => {
+          console.log('⚠️ Orders load failed:', err.message);
+          this.orders = [];
+        })
+      ]);
+      
+      console.log('✅ Background data load complete');
+      
+      // Refresh the page if user is logged in to show loaded data
+      if (this.isAdminLoggedIn && this.currentPage !== 'admin-login') {
+        await this.renderPage(this.currentPage);
+      }
+    } catch (error) {
+      console.error('❌ Background data load error:', error);
     }
   }
 
@@ -205,8 +230,8 @@ class OwnerPortalApp {
         console.log('✅ Server is awake:', health.uptime, 'seconds uptime');
       }
     } catch (error) {
-      console.log('⏰ Server might be waking up from sleep...');
-      this.showWakeUpMessage();
+      console.log('⏰ Server might be waking up from sleep, but continuing...');
+      // Don't block the UI - just log the issue
     }
   }
 
@@ -294,7 +319,7 @@ class OwnerPortalApp {
             
             <div class="loading-text">
               <h2>Owner Portal</h2>
-              <p class="loading-subtitle">Manjula Mobiles Management</p>
+              <p class="loading-subtitle">Manjula Mobile World Management</p>
               <div class="loading-progress">
                 <div class="progress-bar"></div>
               </div>
@@ -488,11 +513,11 @@ class OwnerPortalApp {
         <div class="nav-content">
           <div class="nav-brand" style="cursor: pointer; display: flex; align-items: center; gap: 12px;">
             <div class="nav-logo">
-              <img src="https://i.pinimg.com/736x/e3/6f/79/e36f793e016dd6b35cd27f84030b7487.jpg" alt="Manjula Mobiles Logo" style="width: 50px; height: 50px; object-fit: contain; border-radius: 8px;">
+              <img src="https://i.pinimg.com/736x/e3/6f/79/e36f793e016dd6b35cd27f84030b7487.jpg" alt="Manjula Mobile World Logo" style="width: 50px; height: 50px; object-fit: contain; border-radius: 8px;">
             </div>
             <div class="nav-title" data-page="admin">
               <div style="font-size: 16px; font-weight: 700; white-space: nowrap;">OWNER PORTAL</div>
-              <div style="font-size: 10px; font-weight: 500; margin-top: 1px;">Manjula Mobiles Management</div>
+              <div style="font-size: 10px; font-weight: 500; margin-top: 1px;">Manjula Mobile World Management</div>
             </div>
           </div>
           
@@ -1076,7 +1101,7 @@ class OwnerPortalApp {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Order #${order.orderId || order.id} - Manjula Mobiles</title>
+        <title>Order #${order.orderId || order.id} - Manjula Mobile World</title>
         <style>
           body { 
             font-family: Arial, sans-serif; 
@@ -1156,7 +1181,7 @@ class OwnerPortalApp {
       </head>
       <body>
         <div class="header">
-          <div class="logo">📱 MANJULA MOBILES</div>
+          <div class="logo">📱 MANJULA MOBILE WORLD</div>
           <div class="subtitle">Mobile Repair & Parts • Ramapuram, Tamil Nadu</div>
           <div class="subtitle">📞 +91 82484 54841 • ✉️ manjulamobiles125@gmail.com</div>
         </div>
@@ -1215,7 +1240,7 @@ class OwnerPortalApp {
         </div>
 
         <div class="footer">
-          <p>Thank you for choosing Manjula Mobiles!</p>
+          <p>Thank you for choosing Manjula Mobile World!</p>
           <p>For any queries, contact us at +91 82484 54841 or manjulamobiles125@gmail.com</p>
           <p>Printed on: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</p>
         </div>
@@ -1407,7 +1432,7 @@ class OwnerPortalApp {
           </div>
         </div>
         <div class="footer-bottom">
-          <p>&copy; 2025 Manjula Mobiles Owner Portal. All rights reserved.</p>
+          <p>&copy; 2025 Manjula Mobile World Owner Portal. All rights reserved.</p>
         </div>
       </footer>
     `

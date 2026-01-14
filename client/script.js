@@ -1,4 +1,4 @@
-// Manjula Mobiles - Complete JavaScript Application with MongoDB
+// Manjula Mobile World - Complete JavaScript Application with MongoDB
 class ManjulaMobilesApp {
   constructor() {
     this.currentPage = "home"
@@ -57,7 +57,7 @@ class ManjulaMobilesApp {
 
   // Calculate years of experience dynamically based on business start year
   getYearsOfExperience() {
-    const businessStartYear = 2017; // Manjula Mobiles started in 2017
+    const businessStartYear = 2017; // Manjula Mobile World started in 2017
     const currentYear = new Date().getFullYear();
     return currentYear - businessStartYear;
   }
@@ -559,7 +559,7 @@ class ManjulaMobilesApp {
             
             <!-- Loading Text -->
             <div class="loading-text">
-              <h2>Manjula Mobiles</h2>
+              <h2>Manjula Mobile World</h2>
               <p class="loading-subtitle">Mobile Repair & Parts</p>
               <div class="loading-progress">
                 <div class="progress-bar"></div>
@@ -1555,7 +1555,7 @@ class ManjulaMobilesApp {
         <div class="nav-content">
           <div class="nav-brand" style="cursor: pointer; display: flex; align-items: center; gap: 12px;">
             <div class="nav-logo">
-              <img src="https://i.pinimg.com/736x/e3/6f/79/e36f793e016dd6b35cd27f84030b7487.jpg" alt="Manjula Mobiles Logo" style="width: 50px; height: 50px; object-fit: contain; border-radius: 8px;" onerror="this.innerHTML='<div style=&quot;width:50px;height:50px;background:linear-gradient(135deg,#dc2626,#b91c1c);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px;&quot;>📱</div>'">
+              <img src="https://i.pinimg.com/736x/e3/6f/79/e36f793e016dd6b35cd27f84030b7487.jpg" alt="Manjula Mobile World Logo" style="width: 50px; height: 50px; object-fit: contain; border-radius: 8px;" onerror="this.innerHTML='<div style=&quot;width:50px;height:50px;background:linear-gradient(135deg,#dc2626,#b91c1c);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px;&quot;>📱</div>'">
             </div>
             <div class="nav-title" data-page="home">
               <div style="font-size: 16px; font-weight: 700; white-space: nowrap;">MANJULA MOBIL WORLD</div>
@@ -3103,7 +3103,7 @@ class ManjulaMobilesApp {
             </div>
             
             <p style="text-align: center; color: #666; font-size: 14px; margin-top: 24px; line-height: 1.6;">
-              By confirming, your order will be sent to Manjula Mobiles for processing.<br>
+              By confirming, your order will be sent to Manjula Mobile World for processing.<br>
               We will verify your payment and contact you shortly.
             </p>
           </div>
@@ -3297,7 +3297,7 @@ Status: Payment Verification Pending
 
 Your payment screenshot has been uploaded and saved. We will verify your payment and contact you shortly.
 
-Thank you for choosing Manjula Mobiles!`);
+Thank you for choosing Manjula Mobile World!`);
       
       // Clear cart and go to home
       this.cart = [];
@@ -3331,7 +3331,7 @@ Thank you for choosing Manjula Mobiles!`);
               <div style="display: inline-block; padding: 8px 16px; background-color: rgba(30, 41, 59, 0.5); border: 1px solid rgba(251, 146, 60, 0.3); border-radius: 9999px; margin-bottom: 24px;">
                 <span style="color: #fb923c; font-size: 14px; font-weight: 500;">About Us</span>
               </div>
-              <h1 style="font-size: 48px; font-weight: 700; margin-bottom: 24px; line-height: 1.2;">Manjula Mobiles</h1>
+              <h1 style="font-size: 48px; font-weight: 700; margin-bottom: 24px; line-height: 1.2;">Manjula Mobile World</h1>
               <p style="font-size: 18px; color: #94a3b8; margin-bottom: 24px; line-height: 1.6;">Your trusted mobile repair and parts center in Ramapuram, Tamil Nadu. We specialize in professional device repairs, genuine parts supply, and premium mobile accessories with expert technicians and 24/7 support.</p>
               
               <div style="margin-bottom: 32px;">
@@ -3364,7 +3364,7 @@ Thank you for choosing Manjula Mobiles!`);
               <div class="shop-image-container">
                 <img src="https://images.unsplash.com/photo-1632765486500-24795490f399?w=400&h=400&fit=crop" alt="Mobile Repair Shop" style="width: 100%; height: 100%; object-fit: cover; border-radius: 12px; margin-bottom: 16px;">
                 <div style="background: linear-gradient(to bottom right, rgba(251, 146, 60, 0.2), rgba(239, 68, 68, 0.2)); padding: 32px; border-radius: 12px; text-align: center;">
-                  <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 12px;">Manjula Mobiles</h3>
+                  <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 12px;">Manjula Mobile World</h3>
                   <p style="color: #94a3b8; font-size: 14px; margin-bottom: 16px;">Professional Mobile Repair & Parts Center - Ramapuram</p>
                   <div style="display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;">
                     <span style="background-color: rgba(251, 146, 60, 0.2); padding: 6px 12px; border-radius: 20px; font-size: 12px; color: #fb923c;">Expert Service</span>
@@ -3386,7 +3386,7 @@ Thank you for choosing Manjula Mobiles!`);
         <div class="container">
           <div style="margin-bottom: 48px; text-align: center;">
             <h1 style="font-size: 48px; font-weight: 700; margin-bottom: 8px;">Visit Our Shop</h1>
-            <p style="color: #000000ff; font-size: 18px;">Manjula Mobiles Service Center - Ramapuram, Tamil Nadu</p>
+            <p style="color: #000000ff; font-size: 18px;">Manjula Mobile World Service Center - Ramapuram, Tamil Nadu</p>
           </div>
 
           <div style="max-width: 900px; margin: 0 auto;">
@@ -3969,7 +3969,7 @@ Thank you for choosing Manjula Mobiles!`);
           </div>
         </div>
         <div class="footer-bottom">
-          <p>&copy; 2025 Manjula Mobiles. All rights reserved. | Powered by Advanced Mobile Solutions</p>
+          <p>&copy; 2025 Manjula Mobile World. All rights reserved. | Powered by Advanced Mobile Solutions</p>
           <!-- Hidden owner portal link - only visible when you know about it -->
           <p style="font-size: 10px; color: #374151; margin-top: 8px;">
             <a href="owner.html" style="color: #6b7280; text-decoration: none;">Admin</a>
@@ -4529,7 +4529,7 @@ if (document.readyState === 'loading') {
 
 function initApp() {
   try {
-    console.log('🚀 Initializing Manjula Mobiles App...');
+    console.log('🚀 Initializing Manjula Mobile World App...');
     const app = new ManjulaMobilesApp();
     window.app = app; // Make app globally accessible for debugging
     console.log('✅ App initialized successfully');
