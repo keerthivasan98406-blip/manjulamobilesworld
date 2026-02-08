@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: manjula-mobiles
+    env: node
+    plan: free
+    buildCommand: cd server && npm install
+    startCommand: cd server && NODE_ENV=production node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    healthCheckPath: /health
+    autoDeploy: true

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Images vs Payment Screenshots - Method Comparison</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .comparison-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .method-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .method-title { color: #10b981; font-size: 18px; font-weight: bold; margin-bottom: 15px; }
+        .step { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px; border-left: 4px solid #10b981; }
+        .example-img { max-width: 150px; max-height: 100px; border: 2px solid #ddd; border-radius: 4px; margin: 5px 0; }
+        .code-block { background: #f1f5f9; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px; margin: 5px 0; }
+        .highlight { background: #fef3c7; padding: 2px 4px; border-radius: 2px; }
+    </style>
+</head>
+<body>
+    <h1>🔄 Method Comparison: Product Images vs Payment Screenshots</h1>
+    <p>This page demonstrates how both systems now use the same simple method for image handling.</p>
+    
+    <div class="comparison-container">
+        <!-- Product Images Method -->
+        <div class="method-card">
+            <div class="method-title">📦 Product Images (Owner Portal → Main Website)</div>
+            
+            <div class="step">
+                <strong>Step 1:</strong> Owner uploads image file
+                <div class="code-block">input.type = 'file'; input.accept = 'image/*';</div>
+            </div>
+            
+            <div class="step">
+                <strong>Step 2:</strong> Convert to base64
+                <div class="code-block">reader.readAsDataURL(file);<br>const base64Image = e.target.result;</div>
+            </div>
+            
+            <div class="step">
+                <strong>Step 3:</strong> Store in database
+                <div class="code-block">product.imageUrl = base64Image; // Direct storage</div>
+            </div>
+            
+            <div class="step">
+                <strong>Step 4:</strong> Display on main website
+                <div class="code-block">&lt;img src="${product.imageUrl}" /&gt; // Direct display</div>
+            </div>
+            
+            <div style="margin-top: 15px; padding: 10px; background: #f0fdf4; border-radius: 6px;">
+                <strong>✅ Advantages:</strong>
+                <ul style="margin: 5px 0; padding-left: 20px; font-size: 14px;">
+                    <li>Simple and direct</li>
+                    <li>No file system management</li>
+                    <li>Works immediately</li>
+                    <li>No URL construction needed</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Payment Screenshots Method -->
+        <div class="method-card">
+            <div class="method-title">💳 Payment Screenshots (Main Website → Owner Portal)</div>
+            
+            <div class="step">
+                <strong>Step 1:</strong> User uploads screenshot
+                <div class="code-block">input.type = 'file'; input.accept = 'image/*';</div>
+            </div>
+            
+            <div class="step">
+                <strong>Step 2:</strong> Convert to base64
+                <div class="code-block">reader.readAsDataURL(file);<br>const base64Image = e.target.result;</div>
+            </div>
+            
+            <div class="step">
+                <strong>Step 3:</strong> Store in database <span class="highlight">SAME AS PRODUCTS!</span>
+                <div class="code-block">paymentScreenshot.data = base64Image; // Direct storage</div>
+            </div>
+            
+            <div class="step">
+                <strong>Step 4:</strong> Display in owner portal <span class="highlight">SAME AS PRODUCTS!</span>
+                <div class="code-block">&lt;img src="${order.paymentScreenshot.data}" /&gt; // Direct display</div>
+            </div>
+            
+            <div style="margin-top: 15px; padding: 10px; background: #f0fdf4; border-radius: 6px;">
+                <strong>✅ Now Uses Same Method:</strong>
+                <ul style="margin: 5px 0; padding-left: 20px; font-size: 14px;">
+                    <li>Simple and direct (like products)</li>
+                    <li>No file system management</li>
+                    <li>Works immediately</li>
+                    <li>No URL construction needed</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div style="margin-top: 30px; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h2>🎯 Result: Unified Image Handling</h2>
+        <p>Both product images and payment screenshots now use the <strong>exact same method</strong>:</p>
+        <ol>
+            <li><strong>Upload:</strong> File → Base64 conversion</li>
+            <li><strong>Storage:</strong> Base64 data directly in database</li>
+            <li><strong>Display:</strong> Base64 data directly in img src</li>
+        </ol>
+        
+        <div style="margin-top: 15px; padding: 15px; background: #ecfdf5; border: 2px solid #10b981; border-radius: 8px;">
+            <strong>✅ Benefits of Unified Approach:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li><strong>Consistency:</strong> Same method for all images</li>
+                <li><strong>Simplicity:</strong> No complex URL construction</li>
+                <li><strong>Reliability:</strong> No file system dependencies</li>
+                <li><strong>Immediate Display:</strong> Images show instantly without server file operations</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div style="margin-top: 20px; text-align: center;">
+        <a href="/test-owner-screenshots.html" style="background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 0 10px;">Test Owner Screenshots</a>
+        <a href="/owner.html" style="background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 0 10px;">Open Owner Portal</a>
+        <a href="/index.html" style="background: #8b5cf6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 0 10px;">Open Main Website</a>
+    </div>
+</body>
+</html>

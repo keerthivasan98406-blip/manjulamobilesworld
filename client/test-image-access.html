@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Image Access</title>
+</head>
+<body>
+    <h1>Testing Image Access</h1>
+    
+    <h2>Direct Image URLs:</h2>
+    <div>
+        <h3>Image 1:</h3>
+        <img src="/uploads/screenshot-1767452584142.png" alt="Screenshot 1" style="max-width: 300px; border: 2px solid #ccc;">
+        <p>URL: <code>/uploads/screenshot-1767452584142.png</code></p>
+    </div>
+    
+    <div>
+        <h3>Image 2:</h3>
+        <img src="/uploads/screenshot-1767453183332.png" alt="Screenshot 2" style="max-width: 300px; border: 2px solid #ccc;">
+        <p>URL: <code>/uploads/screenshot-1767453183332.png</code></p>
+    </div>
+    
+    <h2>Absolute URLs:</h2>
+    <div>
+        <h3>Image 1 (Absolute):</h3>
+        <img id="abs1" alt="Screenshot 1 Absolute" style="max-width: 300px; border: 2px solid #ccc;">
+        <p>URL: <code id="url1"></code></p>
+    </div>
+    
+    <div>
+        <h3>Image 2 (Absolute):</h3>
+        <img id="abs2" alt="Screenshot 2 Absolute" style="max-width: 300px; border: 2px solid #ccc;">
+        <p>URL: <code id="url2"></code></p>
+    </div>
+    
+    <script>
+        // Test absolute URLs
+        const baseUrl = window.location.origin;
+        const url1 = baseUrl + '/uploads/screenshot-1767452584142.png';
+        const url2 = baseUrl + '/uploads/screenshot-1767453183332.png';
+        
+        document.getElementById('abs1').src = url1;
+        document.getElementById('abs2').src = url2;
+        document.getElementById('url1').textContent = url1;
+        document.getElementById('url2').textContent = url2;
+        
+        console.log('Base URL:', baseUrl);
+        console.log('Image 1 URL:', url1);
+        console.log('Image 2 URL:', url2);
+        
+        // Test image loading
+        const testImg1 = new Image();
+        testImg1.onload = () => console.log('✅ Image 1 loaded successfully');
+        testImg1.onerror = () => console.error('❌ Image 1 failed to load');
+        testImg1.src = url1;
+        
+        const testImg2 = new Image();
+        testImg2.onload = () => console.log('✅ Image 2 loaded successfully');
+        testImg2.onerror = () => console.error('❌ Image 2 failed to load');
+        testImg2.src = url2;
+    </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://manjulamobilesworld-whwt.onrender.com/sitemap.xml
+
+# Disallow admin areas
+Disallow: /owner.html
+Disallow: /admin/
+Disallow: /api/
+
+# Allow important pages
+Allow: /
+Allow: /index.html
+Allow: /styles.css
+Allow: /script.js

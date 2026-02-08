@@ -1,0 +1,21 @@
+{
+  "name": "manjula-mobiles-world",
+  "version": "1.0.0",
+  "description": "Mobile Repair & Parts Website with Owner Portal",
+  "main": "server/server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "cd server && npm start",
+    "build": "cd server && npm install",
+    "dev": "cd server && npm run dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/keerthivasan98406-blip/manjulamobilesworld.git"
+  },
+  "keywords": ["mobile", "repair", "ecommerce", "nodejs", "mongodb"],
+  "author": "Keerthivasan",
+  "license": "MIT"
+}

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Owner Portal - Manjula Mobile World</title>
+    
+    <!-- Preconnect to external domains for faster loading -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://cdn.socket.io">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    
+    <!-- Critical CSS loaded first -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- External scripts loaded asynchronously -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js" defer></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js" defer></script>
+</head>
+<body>
+    <!-- Top header with scrolling text -->
+    <div class="top-header">
+        <div class="top-header-wrapper">
+            <div class="top-header-content bg-red">
+                <div class="top-header-div">
+                    <span class="top-header-text">🔐 Owner Portal - Manage Products, Tracking & Orders | 📞 +91 82484 54841 | ✉️ manjulamobiles125@gmail.com  </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main app container -->
+    <div id="app" class="app-container"></div>
+
+    <!-- Owner Portal Script -->
+    <script src="owner-script.js"></script>
+</body>
+</html>

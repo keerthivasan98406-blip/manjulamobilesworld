@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Image Upload - Manjula Mobiles</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            border-color: #dc2626;
+            background: #fef2f2;
+        }
+        .upload-area.dragover {
+            border-color: #dc2626;
+            background: #fef2f2;
+        }
+        .btn {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 10px;
+        }
+        .btn:hover {
+            background: #b91c1c;
+        }
+        .btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+        .success {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+        }
+        .error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+        }
+        .preview {
+            max-width: 300px;
+            max-height: 200px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border: 2px solid #dc2626;
+        }
+        .info {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            color: #0c4a6e;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Image Upload Functionality</h1>
+        <p>This page tests the payment screenshot upload and URL conversion feature for Manjula Mobiles.</p>
+        
+        <div class="info">
+            <h3>How it works:</h3>
+            <ol>
+                <li>Upload a payment screenshot image</li>
+                <li>The image gets converted from base64 to a URL</li>
+                <li>The URL is saved in the database</li>
+                <li>The owner portal can display the image using the URL</li>
+            </ol>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <div>
+                <h3>📸 Upload Payment Screenshot</h3>
+                <p>Click here or drag and drop an image file</p>
+                <p style="font-size: 14px; color: #666;">Supported: JPG, PNG, GIF (Max 5MB)</p>
+            </div>
+        </div>
+
+        <input type="file" id="fileInput" accept="image/*" style="display: none;">
+        
+        <div>
+            <button class="btn" id="uploadBtn" disabled>Upload & Convert to URL</button>
+            <button class="btn" onclick="location.href='index.html'">← Back to Main Site</button>
+        </div>
+
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const result = document.getElementById('result');
+        
+        let selectedFile = null;
+        let imageData = null;
+
+        // Click to upload
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            // Validate file
+            if (!file.type.startsWith('image/')) {
+                showResult('error', 'Please select an image file (JPG, PNG, GIF)');
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                showResult('error', 'File size should be less than 5MB');
+                return;
+            }
+
+            selectedFile = file;
+            
+            // Read file as base64
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imageData = e.target.result;
+                
+                // Show preview
+                uploadArea.innerHTML = `
+                    <div>
+                        <h3>✅ Image Selected</h3>
+                        <img src="${imageData}" class="preview" alt="Preview">
+                        <p><strong>File:</strong> ${file.name}</p>
+                        <p><strong>Size:</strong> ${(file.size / 1024).toFixed(1)} KB</p>
+                        <p style="color: #10b981;">Ready to upload and convert to URL!</p>
+                    </div>
+                `;
+                
+                uploadBtn.disabled = false;
+            };
+            
+            reader.onerror = () => {
+                showResult('error', 'Error reading the image file');
+            };
+            
+            reader.readAsDataURL(file);
+        }
+
+        // Upload button click
+        uploadBtn.addEventListener('click', async () => {
+            if (!imageData || !selectedFile) {
+                showResult('error', 'No image selected');
+                return;
+            }
+
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Uploading...';
+
+            try {
+                const response = await fetch('/api/test-image-upload', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        imageData: imageData,
+                        fileName: selectedFile.name
+                    })
+                });
+
+                const result_data = await response.json();
+
+                if (response.ok) {
+                    showResult('success', `
+                        <h3>✅ Upload Successful!</h3>
+                        <p><strong>Original File:</strong> ${result_data.originalFileName}</p>
+                        <p><strong>Image URL:</strong> <a href="${result_data.imageUrl}" target="_blank">${result_data.imageUrl}</a></p>
+                        <p><strong>Message:</strong> ${result_data.message}</p>
+                        <div style="margin-top: 15px;">
+                            <img src="${result_data.imageUrl}" class="preview" alt="Uploaded Image">
+                            <p style="font-size: 14px; color: #666;">This image is now accessible via URL and can be displayed in the owner portal!</p>
+                        </div>
+                    `);
+                } else {
+                    showResult('error', `Upload failed: ${result_data.error}`);
+                }
+            } catch (error) {
+                showResult('error', `Network error: ${error.message}`);
+            }
+
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = 'Upload & Convert to URL';
+        });
+
+        function showResult(type, message) {
+            result.className = `result ${type}`;
+            result.innerHTML = message;
+            result.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
